@@ -66,6 +66,7 @@ Key features include:
 
 - Install Node.js 18+ and npm ([Node.js Installation](https://nodejs.org/en))
 - Ensure the `npx` command is available in the terminal
+- The MCP video tool (`@pickstar-2002/video-clip-mcp`) will be automatically started via `npx` when the agent is running — no manual installation required
 
 #### Volcano Engine Access Credentials
 
