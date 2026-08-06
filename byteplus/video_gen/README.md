@@ -205,7 +205,7 @@ After successful deployment:
 
 1. Visit the [BytePlus AgentKit Console](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
 2. Click **Runtime** to view the deployed agent `storybook_illustrator`
-3. Get the public access domain name (e.g., `https://xxxxx.apigateway-cn-beijing.volceapi.com`) and API Key
+3. Get the public access domain name (e.g., `https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com`) and API Key
 
 #### Interact via the chat UI
 
