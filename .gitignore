@@ -5,6 +5,9 @@ __pycache__/
 .history
 .DS_Store
 
+# Comic-drama-gen session DB
+.data
+
 # C extensions
 *.so
 
