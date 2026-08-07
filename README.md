@@ -1,6 +1,6 @@
 # AgentKit Examples
 
-**Latest Update: 2026-08-04**
+**Latest Update: 2026-08-07**
 
 Welcome! This repository contains example AI agents written in Python and designed to run on AgentKit. Most of the examples here are stolen shamelessly from [agentkit-samples](https://github.com/bytedance/agentkit-samples), an official set of examples put together by developers at ByteDance.
 
