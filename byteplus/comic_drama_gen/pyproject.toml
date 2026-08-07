@@ -1,0 +1,14 @@
+[project]
+name = "comic_drama_gen"
+version = "0.1.0"
+description = "Comic drama video generation agent built on Volcano Engine AgentKit"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "agentkit-sdk-python==0.8.1",
+    "google-adk==2.2.0",
+    "tos==2.8.7",
+    "veadk-python==1.0.10",
+    "volcengine-python-sdk[ark]==5.0.43",
+    "json-repair==0.62.0",
+]
