@@ -25,6 +25,15 @@ We need to do this because of differences in:
 
 This requires us to carefully test that a given example actually works on the target platform (Volcano Engine or BytePlus) and adjust accordingly.
 
+## Included Demos
+
+**Note: Subfolders are under `byteplus/` or `volcengine/`** 
+
+| Subfolder | Agent Name | BytePlus support | VolcEngine support | Summary |
+|------|------------|:----------------:|:------------------:|---------|
+| `comic_drama_gen` | `comic_drama_master` | ✅ | ✅ | Turns a user's story idea into a complete comic drama video, covering the full pipeline of story writing, character design, storyboard image generation, video generation, video merging, and upload. Supports configurable video duration and checkpoint resume for unfinished tasks. |
+| `video_gen` | `storybook_illustrator` | ✅ | ✅ | Converts children's stories into 3D cartoon-style storybook illustrations and storyboard videos aimed at readers aged 5-15. Generates four storyboard images, animates them into three transition videos, then merges and uploads the final story video to TOS. |
+
 ## Licensing
 
 Because many of these are very close copies of of the AgentKit samples located in the [agentkit-samples](https://github.com/bytedance/agentkit-samples) repository, I preserve the license used there, which is the [Apache 2.0](https://github.com/bytedance/agentkit-samples/blob/main/LICENSE) license.
