@@ -109,7 +109,7 @@ Set the following environment variables:
 export VOLCENGINE_ACCESS_KEY={your_ak}
 export VOLCENGINE_SECRET_KEY={your_sk}
 export DATABASE_TOS_BUCKET=agentkit-platform-{{your_account_id}}
-export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # Get from BytePlus ModelArk, required for local debugging
+export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # Get from Volcano Engine Ark (方舟), required for local debugging
 
 # Optional: Specify download directory (defaults to project root)
 export DOWNLOAD_DIR=/tmp
@@ -166,13 +166,14 @@ uv pip install agentkit-sdk-python
 
 **Step 1:** Make sure you are in the current directory (`video_gen`), then configure AgentKit:
 
-**Note**: We assume here that `DATABASE_TOS_BUCKET` is defined in your shell environment
+**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your shell environment
 
 ```bash
 uv run agentkit config \
 --agent_name storybook_illustrator \
 --entry_point 'agent.py' \
 --runtime_envs DATABASE_TOS_BUCKET=$DATABASE_TOS_BUCKET \
+--runtime_envs MODEL_AGENT_API_KEY=$MODEL_AGENT_API_KEY \
 --launch_type cloud
 ```
 
@@ -227,3 +228,6 @@ You can remove your depoyed AgentKit runtime with:
 uv run agentkit destroy
 ```
 
+## Known issues
+
+Video style is not always consistent across the entire video because reference images are generated independently, which can lead to stylistic differences.

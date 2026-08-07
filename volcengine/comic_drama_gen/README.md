@@ -298,15 +298,18 @@ uv pip install agentkit-sdk-python
 
 **Step 1:** Make sure you are in the current directory (`comic_drama_gen`), then configure AgentKit:
 
-**Note**: We assume here that `DATABASE_TOS_BUCKET` is defined in your environment
+**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment
 
 ```bash
 uv run agentkit config \
   --agent_name comic_drama_master \
   --entry_point 'agent.py' \
   --runtime_envs DATABASE_TOS_BUCKET=$DATABASE_TOS_BUCKET \
+  --runtime_envs MODEL_AGENT_API_KEY=$MODEL_AGENT_API_KEY \
   --launch_type cloud
 ```
+
+> **Important**: Environment variables exported in your shell are **not** uploaded to the cloud runtime automatically — only the `runtime_envs` entries in `agentkit.yaml` (plus the contents of a local `.env` file, which the deploy step merges in) reach the deployed runtime. If `MODEL_AGENT_API_KEY` is missing from `runtime_envs`, the deployed agent has no Ark API key and every image/video generation call fails with a 401. The `agent.py` startup mirrors `MODEL_AGENT_API_KEY` to `ARK_API_KEY`, so this single variable covers the LLM, image, and video calls.
 
 **Step 2:** Modify the `agentkit.yaml` deployment configuration
 
@@ -432,3 +435,8 @@ uv run agentkit destroy
 ## Code License
 
 This project is licensed under the Apache 2.0 License
+
+## Known issues
+
+- Video style is not always consistent across the entire video because reference images are generated independently, which can lead to stylistic differences.
+- Image and video generation will sometimes time out forcing a re-try
