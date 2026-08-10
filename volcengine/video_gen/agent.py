@@ -26,8 +26,18 @@ for _path in (str(_AGENT_DIR), str(_AGENT_DIR.parent)):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
-from agentkit.apps import AgentkitAgentServerApp, AgentkitSimpleApp  
-from google.adk.models.lite_llm import LiteLlm  
+# veadk builds its `settings` singleton (endpoints, model names, credentials)
+# once, at import time, so the environment must be fully populated before any
+# veadk (or agentkit, which may pull in veadk) import below. Notably, veadk
+# switches all of its defaults to BytePlus when CLOUD_PROVIDER=byteplus is set
+# in the shell; setting our own MODEL_* variables first keeps this agent
+# pointed at Volcano Engine regardless.
+from consts import set_veadk_environment_variables
+
+set_veadk_environment_variables()
+
+from agentkit.apps import AgentkitAgentServerApp, AgentkitSimpleApp
+from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools.mcp_tool.mcp_toolset import (  
     McpToolset,
     StdioConnectionParams,
@@ -36,9 +46,7 @@ from google.adk.tools.mcp_tool.mcp_toolset import (
 from veadk import Runner
 from veadk.agent_builder import AgentBuilder
 from veadk.models.ark_llm import ArkLlm
-from veadk.memory.short_term_memory import ShortTermMemory  
-
-from consts import set_veadk_environment_variables  
+from veadk.memory.short_term_memory import ShortTermMemory
 
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
@@ -93,8 +101,39 @@ _lite_llm._parse_tool_call_arguments = _parse_tool_call_arguments_with_repair
 
 #### END OF WORKAROUND
 
-# env
-set_veadk_environment_variables()
+#### Start of workaround
+
+# veadk downloads generated media over HTTP via read_file_to_bytes (e.g.
+# image_generate fetching each finished image to save it as a Dev UI
+# artifact) using requests.get() with no timeout, and it does so
+# synchronously on the event-loop thread. A single stalled download
+# therefore freezes the whole server, with the tool call never returning.
+# Wrap it with a timeout so a stall fails that one download instead of
+# hanging forever. Still present as of veadk-python 1.0.9; recheck on
+# upgrades.
+import requests
+import veadk.utils.misc as _veadk_misc
+
+_original_read_file_to_bytes = _veadk_misc.read_file_to_bytes
+
+
+def _read_file_to_bytes_with_timeout(file_path: str) -> bytes:
+    if file_path.startswith(("http://", "https://")):
+        response = requests.get(file_path, timeout=(10, 120))
+        response.raise_for_status()
+        return response.content
+    return _original_read_file_to_bytes(file_path)
+
+
+# Rebind modules that imported the function directly (e.g. veadk.runner,
+# veadk.tools.builtin_tools.image_generate) in addition to the source module.
+for _module in list(sys.modules.values()):
+    if getattr(_module, "read_file_to_bytes", None) is _original_read_file_to_bytes:
+        _module.read_file_to_bytes = _read_file_to_bytes_with_timeout
+
+_veadk_misc.read_file_to_bytes = _read_file_to_bytes_with_timeout
+
+#### END OF WORKAROUND
 
 app_name = "storyvideo"
 app = AgentkitSimpleApp()

@@ -79,7 +79,7 @@ In the web console, open the product search dropdown and search for "Ark" (方�
 
 - **Text:** DeepSeek V4 Pro (model ID: `deepseek-v4-pro-260425`)
 - **Images:** Seedream 5.0 Pro (model ID: `doubao-seedream-5-0-pro-260628`)
-- **Video:** Seedance 2.0 (model ID: `doubao-seedance-2-0-260128`)
+- **Video:** Seedance 2.5 (model ID: `doubao-seedance-2-5-260628`) — supports video clips up to 30 seconds long
 
 **Finally, from the "API Keys" page, create a new key and save it, we'll need it later on (see *Configure Environment Variables* below).**
 
@@ -228,6 +228,15 @@ You can remove your depoyed AgentKit runtime with:
 uv run agentkit destroy
 ```
 
+## Debugging tips
+
+Having trouble understanding why AgentKit isn't doing what you expect? Try adding these environment variables to enable additional debug output:
+
+```bash
+export AGENTKIT_LOG_CONSOLE=true
+export AGENTKIT_LOG_LEVEL=DEBUG
+```
+
 ## Known issues
 
-Video style is not always consistent across the entire video because reference images are generated independently, which can lead to stylistic differences.
+Stylistic differences between video clips have been mitigated by generating the first storyboard image alone and then passing it as a style reference (the `image` field of the image_generate tool) when generating the remaining three storyboard images. Some minor style variation between clips can still occur, since video clips are generated independently from each image pair.
