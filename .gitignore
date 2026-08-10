@@ -217,3 +217,6 @@ docs/node_modules/
 .trae/
 .zip
 .agent
+
+# comic_drama_gen run artifact
+char_prompts.json
