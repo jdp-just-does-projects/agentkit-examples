@@ -133,7 +133,7 @@ Content format:
 - Scene count: {scene_count}
 - Duration allocation: {scene_durations} (each clip dynamically allocated 4~30 seconds)
 - Visual style: {visual_style}
-- Audio: ✅ includes Chinese dialogue voice-over + background music + sound effects
+- Audio: ✅ includes {DIALOGUE_LANGUAGE} dialogue voice-over + background music + sound effects
 
 📖 **Key outputs of the full pipeline**:
 

@@ -12,10 +12,13 @@ Obtain from the conversation context:
 - The screenplay (each chapter's second-by-second script and dialogue lines in script.md, including each chapter's duration annotation)
 - Character designs (the English prompts + STYLE_ANCHOR in characters.md)
 - The unified visual style
+- `DIALOGUE_LANGUAGE` (declared at the top of plot.md): the single language all dialogue must be spoken in
 
-## Step 1: Extract the Style Anchor String
+## Step 1: Extract the Style and Language Anchors
 
 Extract the **STYLE_ANCHOR** from the top of characters.md; every video prompt must begin with this string.
+
+Extract the **DIALOGUE_LANGUAGE** from the top of plot.md; every quoted dialogue line in every video prompt must be written in this language, and every `speaks in ...` tag must name it. The video model speaks exactly what is inside the quotes — a quoted line in the wrong language produces a clip in the wrong language.
 
 ## Step 2: Build a Director-Grade Video Prompt for Each Scene
 
@@ -81,13 +84,18 @@ Control the intensity according to the chapter's position in the overall story:
 
 Format:
 ```
-[CharacterA_EN_name] [emotion: shouts defiantly/sneers coldly/grits teeth and says] in Chinese: "[original dialogue line]", [CharacterB_EN_name] [emotion] responds in Chinese: "[original dialogue line]"
+[CharacterA_EN_name] [emotion: shouts defiantly/sneers coldly/grits teeth and says] speaks in {DIALOGUE_LANGUAGE}: "[dialogue line copied verbatim from script.md]", [CharacterB_EN_name] [emotion] responds in {DIALOGUE_LANGUAGE}: "[dialogue line copied verbatim from script.md]"
 ```
 
-Examples:
-- `Han Li grits teeth and shouts defiantly in Chinese: "Even if you join forces, I, Han, will fight you to the end today! (就算你们联手，今日韩某也奉陪到底！)"`
-- `Ji Yin Patriarch sneers with contempt in Chinese: "A mere Core Formation cultivator daring to spout such nonsense — utterly laughable! (区区结丹期，竟敢口出狂言，可笑至极！)"`
-- `Sun Wukong laughs wildly in Chinese: "Erlang Shen, this little trick of yours is nowhere near enough! (二郎神，你这点本事还不够看！)"`
+> ⚠️ **Language consistency is mandatory**: replace `{DIALOGUE_LANGUAGE}` with the actual language declared in plot.md, and the quoted line itself must be written in that same language. The video model speaks exactly what is inside the quotes. Never mix languages inside a quoted line and never add parenthetical translations — a bilingual quote produces mixed-language speech.
+
+Examples when DIALOGUE_LANGUAGE = Chinese:
+- `Han Li grits teeth and shouts defiantly in Chinese: "就算你们联手，今日韩某也奉陪到底！"`
+- `Ji Yin Patriarch sneers with contempt in Chinese: "区区结丹期，竟敢口出狂言，可笑至极！"`
+
+Examples when DIALOGUE_LANGUAGE = English:
+- `Sun Wukong laughs wildly in English: "Erlang Shen, this little trick of yours is nowhere near enough!"`
+- `Yang Jian grits teeth and shouts defiantly in English: "Insolent monkey! Taste my three-pointed blade!"`
 
 **Adjust dialogue density to the scene duration**:
 
@@ -99,7 +107,7 @@ Examples:
 | 16–30 seconds | 8–10 lines | 12–16 lines | Multi-phase rhythm: dense exchanges alternating with action beats |
 
 Rules:
-- Extract lines from script.md verbatim; do not rewrite them
+- Extract lines from script.md verbatim; do not rewrite or translate them — they are already in DIALOGUE_LANGUAGE and must stay that way
 - Every line must be preceded by a description of the speaker's emotion/action while speaking
 - **The gap between lines must not exceed 4 seconds** (for scenes 7 seconds or longer)
 - **Dialogue must have a sparring feel**: after A speaks, B must respond (verbally or with an action reaction); "monologue-style" lines are forbidden
@@ -260,11 +268,13 @@ The storyboard images are already saved in the `{task_folder}/storyboard/` direc
 **prompts.json** — ⚠️ must be a plain array of strings, NOT an array of objects! Each item is one complete video prompt:
 ```json
 [
-  "Chinese fantasy 3D animation, cinematic quality, on a mountain peak under sunset sky..., Han Li grits teeth in Chinese: 'I, Han, will fight to the end (韩某奏陪到底)', dynamic tracking shot..., epic battle orchestra...",
-  "Chinese fantasy 3D animation, cinematic quality, in a swirling spiritual vortex..., Ji Yin Patriarch sneers in Chinese: 'Utterly laughable (可笑至极)', slow push-in..., tense low cello...",
+  "Chinese fantasy 3D animation, cinematic quality, on a mountain peak under sunset sky..., Han Li grits teeth in Chinese: '韩某奉陪到底', dynamic tracking shot..., epic battle orchestra...",
+  "Chinese fantasy 3D animation, cinematic quality, in a swirling spiritual vortex..., Ji Yin Patriarch sneers in Chinese: '可笑至极', slow push-in..., tense low cello...",
   "Chinese fantasy 3D animation, cinematic quality, amid crumbling ruins..."
 ]
 ```
+
+> ⚠️ **Pre-submit language check**: before submitting, re-read every quoted dialogue string in prompts.json and confirm it is written in DIALOGUE_LANGUAGE (the example above assumes DIALOGUE_LANGUAGE = Chinese). If even one quoted line is in the wrong language — e.g. CJK characters inside quotes when the target language is English — fix that prompt before submitting.
 
 **frames.json** — an array of TOS URL strings (in one-to-one correspondence with prompts):
 ```json
@@ -405,7 +415,7 @@ Key dialogue: "{Character A}: {line}" — "{Character B}: {line}"
 - Duration allocation: {scene_durations}
 - Duration variety: {number of distinct duration values} distinct durations
 - First/last-frame linking: ✅ (each video uses its corresponding storyboard image as the first frame)
-- All videos include audio (Chinese dialogue + SFX + score): ✅
+- All videos include audio ({DIALOGUE_LANGUAGE} dialogue + SFX + score): ✅
 - Total duration: {sum(scene_durations)} seconds = {sum(scene_durations) / 60:.1f} minutes
 
 📊 **Quality score**:
@@ -429,7 +439,9 @@ Key dialogue: "{Character A}: {line}" — "{Character B}: {line}"
 
 **Audio-visual sync**: the score type must strictly match the on-screen emotion; never use calm music during a battle.
 
-**Dialogue scaled by duration**: 4–6 second scene prompts carry at most 1 line of Chinese dialogue (visual impact comes first), 7–10 second scenes at least 3 lines, 11–15 second scenes at least 5 lines, 16–30 second scenes at least 8 lines — otherwise the video will have no speech.
+**Dialogue scaled by duration**: 4–6 second scene prompts carry at most 1 line of dialogue (visual impact comes first), 7–10 second scenes at least 3 lines, 11–15 second scenes at least 5 lines, 16–30 second scenes at least 8 lines — otherwise the video will have no speech.
+
+**One dialogue language**: every quoted line in every prompt is written in DIALOGUE_LANGUAGE (declared in plot.md), and every `speaks in ...` tag names that language. A single clip that speaks a different language ruins the merged film — verify every prompt's quoted strings before submitting.
 
 **Consistent visual style**: every video prompt must begin with the STYLE_ANCHOR to keep the visual style unified.
 

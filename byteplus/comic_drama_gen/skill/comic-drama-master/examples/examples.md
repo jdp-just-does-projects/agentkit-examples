@@ -4,7 +4,7 @@
 
 **User input**:
 ```
-Please create a comic drama video about "Sun Wukong battles Erlang Shen (孙悟空大战二郎神)", in guoman (国漫, Chinese-style animation) 3D realistic style
+Please create a comic drama video about "Sun Wukong battles Erlang Shen (孙悟空大战二郎神)", in guoman (国漫, Chinese-style animation) 3D realistic style, with Chinese dialogue
 ```
 
 **Execution flow**:
@@ -27,6 +27,7 @@ python scripts/task_manager.py init "Sun Wukong vs Erlang Shen"
 - Inform the user, then continue
 
 ### 4. Script generation (with smart duration allocation)
+- DIALOGUE_LANGUAGE = Chinese (explicitly requested by the user; otherwise it would default to the language the story idea was written in) — recorded at the top of requirements.md and plot.md; every dialogue line in script.md is written in Chinese only
 - web_search: "Sun Wukong battles Erlang Shen original storyline", "Erlang Shen Yang Jian abilities and magic weapons", "Journey to the West classic quotes"
 - Write requirements.md, plot.md, script.md
 - **Duration allocation** (4s ~ 30s dynamic range):
@@ -63,7 +64,7 @@ Chinese fantasy 3D animation, cinematic quality, on a crumbling mountain peak un
 
 ### 7. Storyboard videos (smart-duration submission)
 
-Example video prompt (Scene 4, 14-second climactic duel; the quoted dialogue is intentionally left in Chinese so the characters speak Chinese on screen):
+Example video prompt (Scene 4, 14-second climactic duel; DIALOGUE_LANGUAGE = Chinese, so every quoted line is written in Chinese and the characters speak Chinese on screen — if DIALOGUE_LANGUAGE were English, every quoted line and every `speaks in ...` tag would be English instead):
 ```
 Chinese fantasy 3D animation, cinematic quality, ultra-high detail, dramatic color grading, on a crumbling mountain peak under blood-red sky dark clouds swirling lightning cracking, Sun Wukong wild golden fur golden eyes wearing golden chainmail armor with tiger-skin kilt, leaps into the air spinning Ruyi Jingu Bang overhead then slams it down with earth-shattering force, face contorted with wild battle joy eyes blazing with fighting spirit teeth bared in a fierce grin, Sun Wukong laughs wildly in Chinese: "二郎神，你这点本事还不够看！", Yang Jian grits teeth and shouts defiantly in Chinese: "泼猴休狂！看我三尖两刃刀！", Sun Wukong roars in Chinese: "哈哈，来得好！", Yang Jian growls in Chinese: "今日定要擒你！", Sun Wukong shouts in Chinese: "做梦！", dynamic tracking shot racing alongside the action camera tilting 45 degrees then ultra-slow motion 0.2x on moment of impact, epic battle orchestra with war drums and brass fanfare sword clashing metal SFX shockwave boom spiritual energy resonance hum
 ```

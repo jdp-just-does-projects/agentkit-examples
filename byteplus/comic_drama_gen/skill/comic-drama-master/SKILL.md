@@ -349,12 +349,13 @@ Record all paths for use throughout the subsequent steps. FIFO auto-cleanup keep
 **For the complete specification, see `references/screenplay-generator.md`**.
 
 Core workflow:
-1. **In-depth research via `python scripts/web_search.py`** (must be done before writing the screenplay)
-2. Save the requirements document `requirements.md`
-3. Write a chapter-based plot outline `plot.md` (including a global style anchor declaration + emotional arc chart)
-4. **Dynamically allocate a duration for each chapter** (4 seconds ~ 30 seconds, based on story pacing)
-5. Write the complete dialogue screenplay `script.md` (each chapter annotated with its duration; the second-by-second script laid out according to actual duration)
-6. Output the `scene_durations` list (for use in Step 6)
+1. **Determine the DIALOGUE_LANGUAGE**: the language the user's story idea was written in, unless the user explicitly requests another; record it at the top of `requirements.md` and `plot.md`. **All dialogue in `script.md` — and every quoted dialogue line in later video prompts — must be in this one language** (no mixed-language lines, no parenthetical translations)
+2. **In-depth research via `python scripts/web_search.py`** (must be done before writing the screenplay)
+3. Save the requirements document `requirements.md`
+4. Write a chapter-based plot outline `plot.md` (including a global style anchor declaration + DIALOGUE_LANGUAGE declaration + emotional arc chart)
+5. **Dynamically allocate a duration for each chapter** (4 seconds ~ 30 seconds, based on story pacing)
+6. Write the complete dialogue screenplay `script.md` (each chapter annotated with its duration; the second-by-second script laid out according to actual duration; **all dialogue in DIALOGUE_LANGUAGE**)
+7. Output the `scene_durations` list (for use in Step 6)
 
 ### Smart Duration Allocation Rules
 
@@ -404,7 +405,7 @@ Chapter 7: [chapter name] (5 seconds) — [summary]    ← Ending afterglow, bri
 
 **Confirm Step 3 artifacts**:
 - `{task_folder}/requirements.md` ✅
-- `{task_folder}/plot.md` ✅ (with chapter breakdown + per-chapter duration annotations + style anchor + emotional arc)
+- `{task_folder}/plot.md` ✅ (with chapter breakdown + per-chapter duration annotations + style anchor + DIALOGUE_LANGUAGE declaration + emotional arc)
 - `{task_folder}/script.md` ✅ (with dialogue, expressions, actions, scene bridging, ending states, **independent duration per chapter**)
 - `scene_durations` list recorded ✅ (e.g. `[6, 8, 5, 10, 14, 12, 5]`)
 
@@ -548,7 +549,7 @@ Save the contents of the `submitted` field as `task_ids.json`:
 **Keys to visual style consistency**:
 - All video prompts begin with the STYLE_ANCHOR
 - Character descriptions strictly reuse the English prompts from characters.md
-- Dialogue is extracted verbatim from script.md
+- Dialogue is extracted verbatim from script.md — it is already in DIALOGUE_LANGUAGE; never translate it, and every `speaks in ...` tag in the prompt must name DIALOGUE_LANGUAGE
 - 11~15 second scenes: at least 5-6 lines of dialogue, with an intense back-and-forth rhythm
 - 16~30 second scenes: at least 8-10 lines of dialogue, structured in multiple phases so the long take never stalls
 - 7~10 second scenes: at least 3-4 lines of dialogue
@@ -601,7 +602,7 @@ Save the contents of the `submitted` field as `task_ids.json`:
 
 Confirm artifacts:
 - scene_count .mp4 files exist under `{videos_dir}/` ✅
-- Each video segment contains Chinese dialogue audio + music + sound effects ✅
+- Each video segment contains dialogue audio in DIALOGUE_LANGUAGE + music + sound effects ✅
 - Each segment's duration matches `scene_durations` ✅
 
 **🔔 Show key outputs to the user** (⚠️ **every storyboard video segment must be shown — do not skip**):
@@ -773,21 +774,22 @@ Improvement suggestions: [specific suggestions]
 3. **Quality gating**: after each step, confirm the artifacts exist; on anomalies, coordinate a fix before continuing
 4. **Visual style consistency**: the STYLE_ANCHOR runs through the entire pipeline — all image/video prompts begin with it
 5. **Character consistency**: the English prompts in characters.md are reused verbatim in all scenes
-6. **Plot coherence**: scene bridging ensures natural transitions between adjacent chapters, and the emotional arc has a beginning, development, climax, and resolution
-7. **Dialogue density**: 0-2 lines for 4~6 second scenes, at least 3 lines for 7~10 second scenes, at least 6 lines for 11~15 second scenes, at least 10 lines for 16~30 second scenes; no more than 4 seconds between lines, with a sense of back-and-forth
-8. **Smart duration**: each chapter's duration is dynamically allocated from 4~30 seconds based on story pacing; duration diversity takes priority; total duration stays within the target range
-9. **Camera diversity**: adjacent scenes must not repeat camera techniques; at least 5 camera-work types across the whole film; tense scenes use quick-cut close-ups, build-up scenes use slow long-take push-ins, climax scenes use speed ramps and orbits
-10. **Video generation tools**: only `batch_video.py` submit/poll is allowed (or `create_video_task.py` + `query_video_task.py` for failure retries)
-11. **Zero URL modification**: all image and video URLs must remain strictly in their original form throughout input and output — no tampering of any kind is allowed (including but not limited to modifying the domain, path, query parameters, or anchors).
-12. **Output directory**: all outputs are fixed under `COMIC_DRAMA_OUTPUT_DIR` (default `./output/`), with an independent directory per task
-13. **Image generation**: prefer `python scripts/batch_image_generate.py` for batch parallel generation (Step 4 character portraits, Step 5 storyboard images); use `python scripts/image_generate.py` for supplementary single images
-14. **Content-safe wording**: avoid directly using high-risk terms like war/gore/weapons in video prompts; use euphemistic substitutes
-15. **Artifact verification**: after Step 7 completes, the Step 8 artifact completeness check and quality scoring must be performed; any missing artifact means the task is judged a failure
-16. **Show key outputs**: after each step completes, the step's key outputs (document summaries, image previews, video links, scoring reports, etc.) **must** be shown directly to the user rather than only returning file paths. The user should clearly see the plot outline, character portraits, **storyboard images**, videos, and other core outputs in the conversation flow
-17. **Storyboard images must be shown**: after Step 5 completes, all storyboard image previews **must** be shown in Markdown image format (using TOS URLs), so the user can confirm the visuals before proceeding to video generation
-18. **Video display format**: all videos (storyboard videos and the final merged video) **must** be shown using the `<video src="{tos_url}" width="640" controls>description</video>` format. Plain-text URLs, URLs wrapped in Markdown code blocks, and Markdown link format are **forbidden**
-19. **Install ffmpeg on demand**: check for and install ffmpeg before Step 7 (video synthesis) begins; installing on demand avoids disrupting the earlier creative stages
-20. **Scene generation fallback**: when storyboard image generation fails, retry automatically (up to 3 times); after retries fail, simplify the prompt and try again, ensuring as many scenes as possible generate successfully
+6. **Dialogue language consistency**: the DIALOGUE_LANGUAGE decided in Step 3 runs through the entire pipeline — every dialogue line in script.md and every quoted line in video prompts is written in it, every `speaks in ...` tag names it, and languages are never mixed within a quoted line; before submitting video tasks, verify every quoted string in prompts.json is in DIALOGUE_LANGUAGE
+7. **Plot coherence**: scene bridging ensures natural transitions between adjacent chapters, and the emotional arc has a beginning, development, climax, and resolution
+8. **Dialogue density**: 0-2 lines for 4~6 second scenes, at least 3 lines for 7~10 second scenes, at least 6 lines for 11~15 second scenes, at least 10 lines for 16~30 second scenes; no more than 4 seconds between lines, with a sense of back-and-forth
+9. **Smart duration**: each chapter's duration is dynamically allocated from 4~30 seconds based on story pacing; duration diversity takes priority; total duration stays within the target range
+10. **Camera diversity**: adjacent scenes must not repeat camera techniques; at least 5 camera-work types across the whole film; tense scenes use quick-cut close-ups, build-up scenes use slow long-take push-ins, climax scenes use speed ramps and orbits
+11. **Video generation tools**: only `batch_video.py` submit/poll is allowed (or `create_video_task.py` + `query_video_task.py` for failure retries)
+12. **Zero URL modification**: all image and video URLs must remain strictly in their original form throughout input and output — no tampering of any kind is allowed (including but not limited to modifying the domain, path, query parameters, or anchors).
+13. **Output directory**: all outputs are fixed under `COMIC_DRAMA_OUTPUT_DIR` (default `./output/`), with an independent directory per task
+14. **Image generation**: prefer `python scripts/batch_image_generate.py` for batch parallel generation (Step 4 character portraits, Step 5 storyboard images); use `python scripts/image_generate.py` for supplementary single images
+15. **Content-safe wording**: avoid directly using high-risk terms like war/gore/weapons in video prompts; use euphemistic substitutes
+16. **Artifact verification**: after Step 7 completes, the Step 8 artifact completeness check and quality scoring must be performed; any missing artifact means the task is judged a failure
+17. **Show key outputs**: after each step completes, the step's key outputs (document summaries, image previews, video links, scoring reports, etc.) **must** be shown directly to the user rather than only returning file paths. The user should clearly see the plot outline, character portraits, **storyboard images**, videos, and other core outputs in the conversation flow
+18. **Storyboard images must be shown**: after Step 5 completes, all storyboard image previews **must** be shown in Markdown image format (using TOS URLs), so the user can confirm the visuals before proceeding to video generation
+19. **Video display format**: all videos (storyboard videos and the final merged video) **must** be shown using the `<video src="{tos_url}" width="640" controls>description</video>` format. Plain-text URLs, URLs wrapped in Markdown code blocks, and Markdown link format are **forbidden**
+20. **Install ffmpeg on demand**: check for and install ffmpeg before Step 7 (video synthesis) begins; installing on demand avoids disrupting the earlier creative stages
+21. **Scene generation fallback**: when storyboard image generation fails, retry automatically (up to 3 times); after retries fail, simplify the prompt and try again, ensuring as many scenes as possible generate successfully
 
 ## What Makes a Good Comic Drama
 
