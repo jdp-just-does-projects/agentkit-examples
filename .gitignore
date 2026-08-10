@@ -220,3 +220,6 @@ docs/node_modules/
 
 # comic_drama_gen run artifact
 char_prompts.json
+
+# Generated run output (scripts, storyboards, images, videos) — can be very large
+output/
