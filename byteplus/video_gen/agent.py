@@ -98,6 +98,40 @@ _lite_llm._parse_tool_call_arguments = _parse_tool_call_arguments_with_repair
 
 #### END OF WORKAROUND
 
+#### Start of workaround
+
+# veadk downloads generated media over HTTP via read_file_to_bytes (e.g.
+# image_generate fetching each finished image to save it as a Dev UI
+# artifact) using requests.get() with no timeout, and it does so
+# synchronously on the event-loop thread. A single stalled download
+# therefore freezes the whole server, with the tool call never returning.
+# Wrap it with a timeout so a stall fails that one download instead of
+# hanging forever. Still present as of veadk-python 1.0.9; recheck on
+# upgrades.
+import requests
+import veadk.utils.misc as _veadk_misc
+
+_original_read_file_to_bytes = _veadk_misc.read_file_to_bytes
+
+
+def _read_file_to_bytes_with_timeout(file_path: str) -> bytes:
+    if file_path.startswith(("http://", "https://")):
+        response = requests.get(file_path, timeout=(10, 120))
+        response.raise_for_status()
+        return response.content
+    return _original_read_file_to_bytes(file_path)
+
+
+# Rebind modules that imported the function directly (e.g. veadk.runner,
+# veadk.tools.builtin_tools.image_generate) in addition to the source module.
+for _module in list(sys.modules.values()):
+    if getattr(_module, "read_file_to_bytes", None) is _original_read_file_to_bytes:
+        _module.read_file_to_bytes = _read_file_to_bytes_with_timeout
+
+_veadk_misc.read_file_to_bytes = _read_file_to_bytes_with_timeout
+
+#### END OF WORKAROUND
+
 app_name = "storyvideo"
 app = AgentkitSimpleApp()
 agent_builder = AgentBuilder()

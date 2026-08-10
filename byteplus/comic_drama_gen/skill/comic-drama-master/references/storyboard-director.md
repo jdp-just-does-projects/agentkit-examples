@@ -6,7 +6,7 @@ You are a top-tier Hollywood action film director, equally fluent in the visual 
 
 Obtain from the conversation context:
 - `scene_count`: total number of scenes/chapters
-- `scene_durations`: the list of per-clip video durations (e.g. `[6, 8, 5, 10, 14, 12, 5]`, each value 4–15 seconds)
+- `scene_durations`: the list of per-clip video durations (e.g. `[6, 8, 5, 10, 14, 12, 5]`, each value 4–30 seconds)
 - `videos_dir`: directory where videos are saved
 - `task_folder`: task root directory (used to find storyboard/ and for scoring)
 - The screenplay (each chapter's second-by-second script and dialogue lines in script.md, including each chapter's duration annotation)
@@ -74,6 +74,7 @@ Control the intensity according to the chapter's position in the overall story:
 | 4–6 seconds | A single burst move, one strike decides all, no phases needed |
 | 7–10 seconds | Standard action sequence, 1–2 action phases |
 | 11–15 seconds | Action must be split into 2–3 phases (wind-up → burst → aftermath), making full use of the extra time; may include one 3–4 second pure-action climax |
+| 16–30 seconds | Epic long takes: 3+ action phases or a complete build-up → eruption → aftermath arc, each phase with its own beat; may include multiple pure-action climaxes, but momentum must never stall |
 
 ### Dimension 5: Dialogue & Voice
 **You must extract the dialogue lines from the current chapter's second-by-second script in script.md**:
@@ -95,6 +96,7 @@ Examples:
 | 4–6 seconds | 0–1 lines | 1–2 lines | Minimalist, one line decides all, or pure visuals with no dialogue |
 | 7–10 seconds | 3–4 lines | 5–6 lines | Standard rhythm, one line every 2–3 seconds |
 | 11–15 seconds | 5–6 lines | 8–10 lines | Dense rhythm, one line every 1.5–2 seconds |
+| 16–30 seconds | 8–10 lines | 12–16 lines | Multi-phase rhythm: dense exchanges alternating with action beats |
 
 Rules:
 - Extract lines from script.md verbatim; do not rewrite them
@@ -102,6 +104,7 @@ Rules:
 - **The gap between lines must not exceed 4 seconds** (for scenes 7 seconds or longer)
 - **Dialogue must have a sparring feel**: after A speaks, B must respond (verbally or with an action reaction); "monologue-style" lines are forbidden
 - **11–15 second scenes**: must contain at least 2 tight exchanges (rapid back-and-forth within 1.5 seconds)
+- **16–30 second scenes**: must contain at least 3 tight exchanges spread across the scene's phases; the gap between lines still must not exceed 4 seconds
 - **4–6 second scenes**: dialogue centers on the impact of a single line, or relies entirely on visual storytelling
 
 ### Dimension 6: Cinematographer-level Camera
@@ -137,7 +140,7 @@ Shots in short scenes must be fast, precise, and ruthless — every shot is a bu
 - `over-the-shoulder shot with shallow depth of field, speaker in soft focus, listener sharp`
 - `slow steady dolly push-in over 5 seconds, minimal camera movement, letting emotion build`
 
-#### Camera work for climax/eruption scenes (11–15 seconds)
+#### Camera work for climax/eruption scenes (11–30 seconds)
 
 Long scenes offer the richest camera possibilities — use multi-stage camera-move combinations to fully express the emotion:
 
@@ -167,6 +170,7 @@ Long scenes offer the richest camera possibilities — use multi-stage camera-mo
 - **Climax scenes use speed ramps and orbits** to give the decisive strike a sense of ritual
 - **4–6 second scenes**: must use fast cuts (angle change every 0.5–1.5s); long takes are forbidden
 - **11–15 second scenes**: may use more complex camera combinations (e.g. the push-in → orbit → pull-back three-stage combo) to make full use of the extra time
+- **16–30 second scenes**: chain multiple camera combinations across action phases (e.g. push-in → orbit → pull-back, then re-frame and repeat for the next phase) so the epic long take never feels static
 
 ### Dimension 7: Audio
 
@@ -271,7 +275,7 @@ The storyboard images are already saved in the `{task_folder}/storyboard/` direc
 ]
 ```
 
-**durations.json** — a plain array of integers (in one-to-one correspondence with prompts, each 4–15):
+**durations.json** — a plain array of integers (in one-to-one correspondence with prompts, each 4–30):
 ```json
 [6, 8, 5, 10, 14, 12, 5]
 ```
@@ -302,7 +306,7 @@ Save the content of the `submitted` field as `task_ids.json`:
 ```
 
 > ⚠️ **The uniform-duration `--duration` parameter is no longer used.** You must use `--durations-file` to pass each clip's individual duration.
-> The duration list in `durations.json` must correspond one-to-one with `prompts.json`, and each value must be an integer between 4 and 15.
+> The duration list in `durations.json` must correspond one-to-one with `prompts.json`, and each value must be an integer between 4 and 30.
 
 Record all returned task_ids.
 
@@ -379,7 +383,7 @@ Show the scoring results to the user.
 ```
 ✅ Scene video generation complete
 
-Generated {scene_count} video clips (smart durations, dynamically allocated 4–15s), downloaded to:
+Generated {scene_count} video clips (smart durations, dynamically allocated 4–30s), downloaded to:
 {videos_dir}/
 
 ---
@@ -421,15 +425,15 @@ Key dialogue: "{Character A}: {line}" — "{Character B}: {line}"
 
 **Camera serves emotion**: every camera choice must have a reason — low angles for the pressure of a standoff, close-ups for emotion, sweeping moves for eruptions, fast-cut close-ups for tension, slow push-in long takes for buildup.
 
-**Shot rhythm matches duration**: 4–6 second scenes use fast cuts (angle change every 0.5–1.5s), 7–10 second scenes use standard camera work, 11–15 second scenes use multi-stage camera combinations.
+**Shot rhythm matches duration**: 4–6 second scenes use fast cuts (angle change every 0.5–1.5s), 7–10 second scenes use standard camera work, 11–15 second scenes use multi-stage camera combinations, 16–30 second scenes chain combinations across multiple action phases.
 
 **Audio-visual sync**: the score type must strictly match the on-screen emotion; never use calm music during a battle.
 
-**Dialogue scaled by duration**: 4–6 second scene prompts carry at most 1 line of Chinese dialogue (visual impact comes first), 7–10 second scenes at least 3 lines, 11–15 second scenes at least 5 lines — otherwise the video will have no speech.
+**Dialogue scaled by duration**: 4–6 second scene prompts carry at most 1 line of Chinese dialogue (visual impact comes first), 7–10 second scenes at least 3 lines, 11–15 second scenes at least 5 lines, 16–30 second scenes at least 8 lines — otherwise the video will have no speech.
 
 **Consistent visual style**: every video prompt must begin with the STYLE_ANCHOR to keep the visual style unified.
 
-**Smart durations**: rhythm variety is key — tense fast cuts at 4–6s, standard narration at 7–10s, climax and buildup at 11–15s; alternating the three makes the audience's heartbeat rise and fall with the picture.
+**Smart durations**: rhythm variety is key — tense fast cuts at 4–6s, standard narration at 7–10s, climax and buildup at 11–15s, epic finales at 16–30s; alternating the tiers makes the audience's heartbeat rise and fall with the picture.
 
 **No fallbacks**: use only `batch_video.py` submit/poll (or `create_video_task.py` + `query_video_task.py` when retrying failures); using any other video tool is forbidden.
 

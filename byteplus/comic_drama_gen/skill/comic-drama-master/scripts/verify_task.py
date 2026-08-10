@@ -3,7 +3,7 @@ Comic drama task artifact verification tool.
 
 Automatically checks after each comic drama generation:
 1. Artifact completeness (directory tree + non-empty files)
-2. Duration compliance (each scene 4~15s, total duration matches)
+2. Duration compliance (each scene 4~30s, total duration matches)
 3. Five-dimension quality scoring (plot coherence / dialogue richness / visual quality / emotional tension / audio-visual sync)
 4. Overall pass/fail verdict
 
@@ -22,7 +22,7 @@ from typing import Dict, List, Optional, Tuple
 # ── Constants ─────────────────────────────────────────────
 
 MIN_SCENE_DURATION = 4
-MAX_SCENE_DURATION = 15
+MAX_SCENE_DURATION = 30
 
 # Root-level files that must exist and be non-empty
 _REQUIRED_ROOT_FILES = [
@@ -282,13 +282,15 @@ def check_durations(durations: List[int], expected_total: Optional[int] = None) 
     # Distribution statistics
     short_cut = [d for d in durations if MIN_SCENE_DURATION <= d <= 6]  # tense quick cuts
     standard = [d for d in durations if 7 <= d <= 10]  # standard narration
-    climax = [d for d in durations if 11 <= d <= MAX_SCENE_DURATION]  # climax build-up
+    climax = [d for d in durations if 11 <= d <= 15]  # climax build-up
+    epic = [d for d in durations if 16 <= d <= MAX_SCENE_DURATION]  # epic long takes
 
     # Chinese tier labels kept: they are emitted as JSON keys in the report
     distribution = {
         "紧张快切(4~6s)": {"count": len(short_cut), "values": short_cut},
         "标准叙事(7~10s)": {"count": len(standard), "values": standard},
         "高潮铺垫(11~15s)": {"count": len(climax), "values": climax},
+        "史诗长镜头(16~30s)": {"count": len(epic), "values": epic},
     }
 
     return {

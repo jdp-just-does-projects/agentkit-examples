@@ -11,7 +11,7 @@ An AI-powered comic drama production Agent built on BytePlus AgentKit. Simply in
 ## Core Features
 
 - **End-to-End Automation**: 8-step pipeline from creative concept to finished film, no manual intervention required
-- **Intelligent Duration Allocation**: Dynamic 4~15 second allocation per scene for natural pacing
+- **Intelligent Duration Allocation**: Dynamic 4~30 second allocation per scene for natural pacing
 - **Professional Camera Language**: Built-in director-level camera strategies (speed ramps, 360° orbits, tracking shots, etc.)
 - **Content Safety Pre-screening**: Automatic risk assessment with proactive handling of sensitive content
 - **Style Consistency**: STYLE_ANCHOR maintained throughout the entire workflow with strict character prompt reuse
@@ -27,7 +27,7 @@ An AI-powered comic drama production Agent built on BytePlus AgentKit. Simply in
 ```
 User Story Idea
   ↓
-Step 1: Load Config → Smart duration mode (4s~15s dynamic range)
+Step 1: Load Config → Smart duration mode (4s~30s dynamic range)
 Step 2: Initialize Task Directory → Create isolated directory under COMIC_DRAMA_OUTPUT_DIR
   ↓ ⚠️ Content Safety Pre-screening
 Step 3: Screenplay Generation → web search research + script writing + duration allocation
@@ -82,7 +82,7 @@ Comic Drama Master (comic_drama_master)
 5. Activate the following pre-built inference endpoints ("Model activation" in the ModelArk console):
    - Agent model: `deepseek-v4-pro-260425`
    - Image generation model: `dola-seedream-5-0-pro-260628` (listed under "Dola-Seedream-5.0-pro")
-   - Video generation model: `dreamina-seedance-2-0-260128` (listed under "Dreamina-Seedance-2.0")
+   - Video generation model: `dreamina-seedance-2-5-260628` (listed under "Dreamina-Seedance-2.5") — supports video clips up to 30 seconds long
 
 #### Node.js Environment
 
@@ -139,7 +139,7 @@ DATABASE_TOS_BUCKET=agentkit-platform-{{your_account_id}}
 CLOUD_PROVIDER=byteplus
 COMIC_DRAMA_OUTPUT_DIR=./my-comic-drama
 VIDEO_DURATION_MINUTES=0.5
-DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-0-260128
+DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 ```
 
 > The `.env` file is automatically loaded at startup (via `python-dotenv` or the built-in parser) and will not override existing exported environment variables.
@@ -160,7 +160,7 @@ export AGENTKIT_CLOUD_PROVIDER=byteplus
 export CLOUD_PROVIDER=byteplus
 export COMIC_DRAMA_OUTPUT_DIR=./my-comic-drama
 export VIDEO_DURATION_MINUTES=0.5
-export DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-0-260128
+export DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 ```
 
 **Note:** `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. The agent sets `CLOUD_PROVIDER=byteplus` automatically at startup (see `consts.py`), so exporting it is optional but recommended for clarity and for running the skill scripts standalone.
@@ -176,7 +176,7 @@ export DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-0-260128
 | `DATABASE_TOS_BUCKET` | ✅ | — | TOS bucket name |
 | `COMIC_DRAMA_OUTPUT_DIR` | ❌ | `output/` under project dir | Output root directory |
 | `VIDEO_DURATION_MINUTES` | ❌ | `0.5` | Video duration in minutes, supports 0.5/1/2/3/4 (0.5 = 30s) |
-| `DEFAULT_VIDEO_MODEL_NAME` | ❌ | `dreamina-seedance-2-0-260128` | Video generation model name |
+| `DEFAULT_VIDEO_MODEL_NAME` | ❌ | `dreamina-seedance-2-5-260628` | Video generation model name |
 
 ## Local Execution
 
@@ -289,7 +289,7 @@ After each task completes, the `COMIC_DRAMA_OUTPUT_DIR` (defaults to `output/` u
     ├── final_video.md    # Final delivery document (with TOS link)
     ├── storyboard/       # Storyboards (scene_01.jpg ~ scene_NN.jpg)
     ├── characters/       # Character portraits (char_*.jpg)
-    ├── videos/           # Scene videos (scene_01.mp4 ~ scene_NN.mp4, smart duration 4~15s)
+    ├── videos/           # Scene videos (scene_01.mp4 ~ scene_NN.mp4, smart duration 4~30s)
     └── final/            # Composited drama (*_final.mp4)
 ```
 

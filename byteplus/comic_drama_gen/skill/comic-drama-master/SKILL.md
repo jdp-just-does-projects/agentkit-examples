@@ -144,7 +144,7 @@ python scripts/batch_video.py poll --task-ids-file task_ids.json --interval 30
 ]
 ```
 
-**durations.json** — plain integer array, each item an integer between 4~15 (one-to-one with prompts):
+**durations.json** — plain integer array, each item an integer between 4~30 (one-to-one with prompts):
 ```json
 [6, 8, 5, 10, 14, 12, 5]
 ```
@@ -208,7 +208,7 @@ python scripts/video_scorer.py "<absolute path to task_folder>"
   - `BYTEPLUS_ACCESS_KEY` / `BYTEPLUS_SECRET_KEY`: BytePlus AK/SK (for web search + TOS upload; `VOLCENGINE_ACCESS_KEY`/`VOLCENGINE_SECRET_KEY` also accepted)
   - `VIDEO_DURATION_MINUTES`: video duration (optional, default 0.5 (30 seconds), supports 0.5/1/2/3/4)
   - `COMIC_DRAMA_OUTPUT_DIR`: root output directory for artifacts (optional, defaults to `output/` under the project directory)
-  - `DEFAULT_VIDEO_MODEL_NAME`: video generation model name (optional, default `dreamina-seedance-2-0-260128`)
+  - `DEFAULT_VIDEO_MODEL_NAME`: video generation model name (optional, default `dreamina-seedance-2-5-260628`)
 
 ---
 
@@ -266,7 +266,7 @@ Show the detection results to the user:
 User story idea
   ↓
 Step 0: Resume detection → python scripts/task_manager.py list (check for unfinished tasks)
-Step 1: Read configuration → python scripts/app_config.py (smart duration mode, 4s~15s dynamic range)
+Step 1: Read configuration → python scripts/app_config.py (smart duration mode, 4s~30s dynamic range)
 Step 2: Initialize task directory → python scripts/task_manager.py init "<task_name>"
   ↓ ⚠️ Content safety pre-review (assess risk level, explain to user)
 Step 3: Screenplay generation → python scripts/web_search.py research + write screenplay + smart duration allocation (see references/screenplay-generator.md)
@@ -291,24 +291,25 @@ The output JSON contains:
 - `video_duration_minutes`: video duration (minutes)
 - `total_seconds`: total seconds
 - `smart_duration`: `true` (smart duration mode enabled)
-- `duration_range`: `{"min": 4, "max": 15}` (selectable duration range per segment)
-- `duration_options`: `"4s ~ 15s dynamic allocation"`
+- `duration_range`: `{"min": 4, "max": 30}` (selectable duration range per segment)
+- `duration_options`: `"4s ~ 30s dynamic allocation"`
 - `scene_count_range`: `{"min": N, "max": M}` (reference range for scene count)
-- `recommended_scene_count`: recommended scene count (estimated at an average of 8s)
+- `recommended_scene_count`: recommended scene count (estimated at the midpoint average duration)
 
 ### Smart Duration Mode Explained
 
-Each storyboard scene is assigned its own duration based on **the needs of the story's pacing** (continuously selectable from **4 seconds ~ 15 seconds**), rather than all using a uniform duration. **Duration diversity is the key to making the comic drama's rhythm come alive** — quick cuts create urgency, long takes build emotion, and alternating between them keeps the audience immersed in the story.
+Each storyboard scene is assigned its own duration based on **the needs of the story's pacing** (continuously selectable from **4 seconds ~ 30 seconds**), rather than all using a uniform duration. **Duration diversity is the key to making the comic drama's rhythm come alive** — quick cuts create urgency, long takes build emotion, and alternating between them keeps the audience immersed in the story.
 
 | Scene Type | Recommended Duration Range | Applicable Situations | Dialogue Density |
 |---------|-------------|---------|---------|
 | Tense quick cuts | **4~6 seconds** | Chase scenes, jump-scare moments, rapid flashbacks, montage transitions, one-hit kills | 1~2 short lines or pure visuals with no dialogue |
 | Standard narrative | **7~10 seconds** | Opening setup, transitions, establishing environments, simple dialogue, closing afterglow | 3~5 lines of dialogue, standard pacing |
 | Climax build-up | **11~15 seconds** | Ultimate showdowns, emotional outbursts, multi-character confrontations, key turning points, dense dialogue | 6~10 lines of dialogue, intense exchanges |
+| Epic long take | **16~30 seconds** | Grand finales, extended one-shot battles, multi-phase showdowns, complete emotional arcs within a single scene | 10~16 lines of dialogue, or sustained spectacle with multi-phase action |
 
 **The master director decides each chapter's duration during Step 3 (screenplay generation), based on the chapter's narrative function and pacing needs**, ensuring:
 - Total duration ≈ `total_seconds` (±10% tolerance allowed)
-- Climax chapters (Act Three) are prioritized for 11~15 seconds
+- Climax chapters (Act Three) are prioritized for 11~15 seconds; the single most important showdown may use a 16~30 second epic long take
 - Tense chases/flashbacks may use 4~6 second quick cuts
 - Opening and closing chapters typically use 7~10 seconds
 - **Adjacent scenes should vary in duration** — avoid multiple consecutive scenes of identical length, which makes the pacing monotonous
@@ -351,13 +352,13 @@ Core workflow:
 1. **In-depth research via `python scripts/web_search.py`** (must be done before writing the screenplay)
 2. Save the requirements document `requirements.md`
 3. Write a chapter-based plot outline `plot.md` (including a global style anchor declaration + emotional arc chart)
-4. **Dynamically allocate a duration for each chapter** (4 seconds ~ 15 seconds, based on story pacing)
+4. **Dynamically allocate a duration for each chapter** (4 seconds ~ 30 seconds, based on story pacing)
 5. Write the complete dialogue screenplay `script.md` (each chapter annotated with its duration; the second-by-second script laid out according to actual duration)
 6. Output the `scene_durations` list (for use in Step 6)
 
 ### Smart Duration Allocation Rules
 
-When writing plot.md, annotate each chapter with its duration (dynamically chosen from 4s ~ 15s):
+When writing plot.md, annotate each chapter with its duration (dynamically chosen from 4s ~ 30s):
 
 ```
 Chapter 1: [chapter name] (6 seconds) — [summary]    ← Rapid flashback/prologue, tight opening
@@ -379,6 +380,9 @@ Chapter 7: [chapter name] (5 seconds) — [summary]    ← Ending afterglow, bri
 | Emotional outburst (furious roar, do-or-die declaration, dying words) | **11~15 seconds** |
 | Dense dialogue (needs 6+ lines to express fully) | **11~15 seconds** |
 | Complex action choreography (multiple consecutive action beats) | **12~15 seconds** |
+| Grand finale, the story's decisive battle | **20~30 seconds** |
+| Multi-phase showdown (2+ distinct phases in one scene) | **16~25 seconds** |
+| Complete emotional arc in a single scene (build-up → eruption → aftermath) | **16~24 seconds** |
 | Opening world-building | **7~10 seconds** |
 | Transitions, environment changes | **6~9 seconds** |
 | Simple dialogue (3-5 lines suffice) | **7~10 seconds** |
@@ -388,12 +392,13 @@ Chapter 7: [chapter name] (5 seconds) — [summary]    ← Ending afterglow, bri
 | Montage transition, dream flash | **4~5 seconds** |
 | Jump-scare moment, sudden event | **4~5 seconds** |
 
-> **Key principle**: duration diversity > duration uniformity. A good comic drama's rhythm should rise and fall like a heartbeat — short and punchy like drumbeats when tense (4~6s), gentle like strings during build-up (7~10s), long and sweeping like a symphony at the climax (11~15s).
+> **Key principle**: duration diversity > duration uniformity. A good comic drama's rhythm should rise and fall like a heartbeat — short and punchy like drumbeats when tense (4~6s), gentle like strings during build-up (7~10s), long and sweeping like a symphony at the climax (11~15s), with an epic long take (16~30s) reserved for the grand finale.
 
 **How each chapter's duration is reflected in script.md**:
-- Chapter heading format: `## Chapter N: [chapter name] (Duration: Xs)` (X is an integer between 4~15)
+- Chapter heading format: `## Chapter N: [chapter name] (Duration: Xs)` (X is an integer between 4~30)
 - The second-by-second script timeline is laid out per actual duration (e.g. a 5-second scene: `0:00-0:05`; a 12-second scene: `0:00-0:12`)
 - 11~15 second scenes have higher dialogue density (6-10 lines) and richer action choreography
+- 16~30 second epic long takes have the highest dialogue density (10-16 lines) and multi-phase action choreography
 - 7~10 second scenes have standard dialogue density (3-5 lines)
 - 4~6 second scenes have minimal dialogue (0-2 lines), relying primarily on visual impact
 
@@ -484,7 +489,7 @@ Confirm artifacts:
 Core workflow:
 1. Extract the STYLE_ANCHOR from characters.md
 2. Build a seven-dimension director-grade video prompt for each scene (beginning with the STYLE_ANCHOR)
-3. **Prepare the list of independent durations for each video segment** (taken from Step 3's `scene_durations`, dynamic values of 4~15 seconds)
+3. **Prepare the list of independent durations for each video segment** (taken from Step 3's `scene_durations`, dynamic values of 4~30 seconds)
 4. Submit video tasks in batch (with first-frame TOS URLs + independent duration per segment)
 5. Poll until all tasks complete
 6. Download the videos + quality scoring
@@ -538,13 +543,14 @@ Save the contents of the `submitted` field as `task_ids.json`:
 ```
 
 > ⚠️ **The uniform-duration `--duration` parameter is no longer used**; use `--durations-file` instead to give each segment an independent duration.
-> The durations list in `durations.json` must correspond one-to-one with `prompts.json`, and each value must be an integer between 4~15.
+> The durations list in `durations.json` must correspond one-to-one with `prompts.json`, and each value must be an integer between 4~30.
 
 **Keys to visual style consistency**:
 - All video prompts begin with the STYLE_ANCHOR
 - Character descriptions strictly reuse the English prompts from characters.md
 - Dialogue is extracted verbatim from script.md
 - 11~15 second scenes: at least 5-6 lines of dialogue, with an intense back-and-forth rhythm
+- 16~30 second scenes: at least 8-10 lines of dialogue, structured in multiple phases so the long take never stalls
 - 7~10 second scenes: at least 3-4 lines of dialogue
 - 4~6 second scenes: 0-2 minimal lines of dialogue, relying primarily on visual impact
 - Diversify camera work — adjacent scenes must not use exactly the same camera technique
@@ -768,8 +774,8 @@ Improvement suggestions: [specific suggestions]
 4. **Visual style consistency**: the STYLE_ANCHOR runs through the entire pipeline — all image/video prompts begin with it
 5. **Character consistency**: the English prompts in characters.md are reused verbatim in all scenes
 6. **Plot coherence**: scene bridging ensures natural transitions between adjacent chapters, and the emotional arc has a beginning, development, climax, and resolution
-7. **Dialogue density**: 0-2 lines for 4~6 second scenes, at least 3 lines for 7~10 second scenes, at least 6 lines for 11~15 second scenes; no more than 4 seconds between lines, with a sense of back-and-forth
-8. **Smart duration**: each chapter's duration is dynamically allocated from 4~15 seconds based on story pacing; duration diversity takes priority; total duration stays within the target range
+7. **Dialogue density**: 0-2 lines for 4~6 second scenes, at least 3 lines for 7~10 second scenes, at least 6 lines for 11~15 second scenes, at least 10 lines for 16~30 second scenes; no more than 4 seconds between lines, with a sense of back-and-forth
+8. **Smart duration**: each chapter's duration is dynamically allocated from 4~30 seconds based on story pacing; duration diversity takes priority; total duration stays within the target range
 9. **Camera diversity**: adjacent scenes must not repeat camera techniques; at least 5 camera-work types across the whole film; tense scenes use quick-cut close-ups, build-up scenes use slow long-take push-ins, climax scenes use speed ramps and orbits
 10. **Video generation tools**: only `batch_video.py` submit/poll is allowed (or `create_video_task.py` + `query_video_task.py` for failure retries)
 11. **Zero URL modification**: all image and video URLs must remain strictly in their original form throughout input and output — no tampering of any kind is allowed (including but not limited to modifying the domain, path, query parameters, or anchors).
@@ -788,5 +794,5 @@ Improvement suggestions: [specific suggestions]
 > The plot has a beginning, development, climax, and resolution; the lines and language have well-judged tension and release; the camera work is just right (varied camera techniques that draw the user into the world of the comic drama);
 > the visuals are richly layered, the plot coherent, the emotions full, the characters distinctive; the visuals, scenes, music, and dialogue are refined and consistent;
 > the visual style stays unified throughout, so that watching the comic drama the user can feel the pull of the story, the continuity of the plot, the tension of the protagonist, and the swell of the storyline.
-> **Rhythm is the soul of a comic drama** — quick cuts tense like drumbeats (4~6s), narrative gentle like strings (7~10s), climaxes long and sweeping like a symphony (11~15s);
+> **Rhythm is the soul of a comic drama** — quick cuts tense like drumbeats (4~6s), narrative gentle like strings (7~10s), climaxes long and sweeping like a symphony (11~15s), epic finales in sustained long takes (16~30s);
 > alternating among the three lets the audience's heartbeat rise and fall with the picture — that is masterful command of rhythm.

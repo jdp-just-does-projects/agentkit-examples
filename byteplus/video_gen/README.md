@@ -78,7 +78,7 @@ In the web console, open the product search dropdown and search for "Ark" (on Vo
 
 - DeepSeek V4 Pro (model ID: `deepseek-v4-pro-260425`)
 - Seedream 5.0 Pro (model ID: `dola-seedream-5-0-pro-260628`)
-- Seedance 2.0 (model ID: `dreamina-seedance-2-0-260128`)
+- Seedance 2.5 (model ID: `dreamina-seedance-2-5-260628`) — supports video clips up to 30 seconds long
 
 **Finally, from the "API Keys" page, create a new key and save it, we'll need it later on (see *Configure Environment Variables* below).**
 
@@ -243,4 +243,4 @@ export AGENTKIT_LOG_LEVEL=DEBUG
 
 ## Known issues
 
-Video style is not always consistent across the entire video because reference images are generated independently, which can lead to stylistic differences.
+Stylistic differences between video clips have been mitigated by generating the first storyboard image alone and then passing it as a style reference (the `image` field of the image_generate tool) when generating the remaining three storyboard images. Some minor style variation between clips can still occur, since video clips are generated independently from each image pair.

@@ -1,7 +1,7 @@
 """
 Batch video task management: submission and polling.
 Supports a different duration per video segment (smart duration mode).
-Smart duration mode: each storyboard shot is dynamically assigned a duration of 4s ~ 15s based on scene complexity.
+Smart duration mode: each storyboard shot is dynamically assigned a duration of 4s ~ 30s based on scene complexity.
 Usage:
     python scripts/batch_video.py submit --prompts-file prompts.json [--first-frames-file frames.json] [--duration 10] [--durations-file durations.json]
     python scripts/batch_video.py poll --task-ids-file task_ids.json [--interval 30]
@@ -20,7 +20,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_VALID_DURATIONS = set(range(4, 16))
+_VALID_DURATIONS = set(range(4, 31))
 _API_BASE = (
     os.environ.get("MODEL_VIDEO_API_BASE", "https://ark.ap-southeast.bytepluses.com/api/v3")
     .rstrip("/")
@@ -70,7 +70,7 @@ def submit_video_tasks(
         first_frame_urls: List of first-frame URLs (one-to-one with prompts)
         durations: List of per-segment durations (one-to-one with prompts, takes precedence over duration_seconds)
     """
-    if not (4 <= duration_seconds <= 15):
+    if not (4 <= duration_seconds <= 30):
         duration_seconds = 10
 
     if first_frame_urls and len(first_frame_urls) != len(prompts):
@@ -88,7 +88,7 @@ def submit_video_tasks(
         frame_url = first_frame_urls[i] if first_frame_urls else None
         # Use per-segment duration or uniform duration
         scene_duration = durations[i] if durations else duration_seconds
-        if not (4 <= scene_duration <= 15):
+        if not (4 <= scene_duration <= 30):
             scene_duration = 10
         payload = {
             "model": _MODEL,

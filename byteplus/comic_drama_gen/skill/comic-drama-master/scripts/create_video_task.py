@@ -16,7 +16,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-_VALID_DURATIONS = set(range(4, 16))
+_VALID_DURATIONS = set(range(4, 31))
 _API_URL = (
     os.environ.get("MODEL_VIDEO_API_BASE", "https://ark.ap-southeast.bytepluses.com/api/v3")
     .rstrip("/")
