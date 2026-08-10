@@ -1,6 +1,6 @@
 # AgentKit Examples
 
-**Latest Update: 2026-08-08**
+**Latest Update: 2026-08-10**
 
 Welcome! This repository contains example AI agents written in Python and designed to run on AgentKit. Most of the examples here are stolen shamelessly from [agentkit-samples](https://github.com/bytedance/agentkit-samples), an official set of examples put together by developers at ByteDance.
 
@@ -35,6 +35,7 @@ This requires us to carefully test that a given example actually works on the ta
 | `ad_video_gen_seq` | `ad_video_gen_seq` | ❌ | ✅ | Sequential multi-agent pipeline that plans, generates, evaluates, and stitches marketing shot videos. |
 | `ad_video_gen_a2a` | `director-agent` (+ 5 more services) | ❌ | ✅ | A2A version of the marketing video generator: cooperating agents produce, score, and stitch videos end to end. |
 | `comic_drama_gen` | `comic_drama_master` | ✅ | ✅ | Turns a story idea into a complete comic drama video, from screenplay to storyboard to merged final video. |
+| `sandbox_demo` | `sandbox_web_coder` | ✅ | ✅ | Cloud coding agent showcasing the AgentKit AIO Sandbox: writes and tests web projects entirely inside the sandbox, then delivers the code as a TOS download link. |
 | `video_gen` | `storybook_illustrator` | ✅ | ✅ | Turns children's stories into 3D cartoon storybook illustrations and a merged storyboard video. |
 
 ## Licensing
