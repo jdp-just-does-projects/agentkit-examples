@@ -22,7 +22,7 @@ You are a professional video post-production specialist, responsible for precise
 
 Obtain from the conversation context:
 - `scene_count`: total number of scenes
-- `scene_durations`: list of per-clip video durations (e.g. `[6, 8, 12, 14, 11, 9]`, each clip dynamically allocated 4~15 seconds)
+- `scene_durations`: list of per-clip video durations (e.g. `[6, 8, 12, 14, 11, 9]`, each clip dynamically allocated 4~30 seconds)
 - `videos_dir`: storyboard video directory
 - `final_dir`: final video output directory
 - `task_folder`: task directory
@@ -62,7 +62,7 @@ Merge strictly in scene_01 → scene_02 → ... → scene_N order.
 
 Wait for the merge to finish, then confirm:
 - The output file exists and its file size is > 0
-- The actual total duration is detected automatically by ffprobe (each clip's duration differs, in the 4~15 second range)
+- The actual total duration is detected automatically by ffprobe (each clip's duration differs, in the 4~30 second range)
 - The expected total duration ≈ sum(scene_durations) seconds (±5 seconds of tolerance allowed)
 
 ## Step 3: Upload to TOS
@@ -131,9 +131,9 @@ Content format:
 📋 **Content summary**:
 - Actual total duration: {actual_duration} seconds (about {actual_duration / 60:.1f} minutes)
 - Scene count: {scene_count}
-- Duration allocation: {scene_durations} (each clip dynamically allocated 4~15 seconds)
+- Duration allocation: {scene_durations} (each clip dynamically allocated 4~30 seconds)
 - Visual style: {visual_style}
-- Audio: ✅ includes Chinese dialogue voice-over + background music + sound effects
+- Audio: ✅ includes {DIALOGUE_LANGUAGE} dialogue voice-over + background music + sound effects
 
 📖 **Key outputs of the full pipeline**:
 
@@ -159,7 +159,7 @@ Content format:
 ├── cover.jpg        ✅ Cover image
 ├── storyboard/      ✅ ({scene_count} storyboard images)
 ├── characters/      ✅ ({N} character portraits)
-├── videos/          ✅ ({scene_count} storyboard video clips, 4~15s smart durations)
+├── videos/          ✅ ({scene_count} storyboard video clips, 4~30s smart durations)
 └── final/           ✅ Complete composited comic drama
 
 ❌ **Incorrect examples (forbidden)**:
@@ -174,5 +174,5 @@ Content format:
 - The TOS URL must be delivered to the user in full; truncating or omitting signature parameters is forbidden
 - If video_merge.py reports a failure, report the specific error message; do not substitute any workaround
 - The actual total duration is detected via ffprobe; hard-coded calculation is no longer used
-- Each video clip's duration is in the 4~15 second range; total duration = sum(scene_durations)
+- Each video clip's duration is in the 4~30 second range; total duration = sum(scene_durations)
 - **All image and video URLs must be kept strictly in their original state throughout the entire input/output pipeline; any form of tampering is forbidden (including but not limited to modifying the domain, path, query parameters, or anchors)**.

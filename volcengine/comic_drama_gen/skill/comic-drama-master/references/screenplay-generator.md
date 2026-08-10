@@ -12,6 +12,19 @@ Obtain from the conversation context:
 
 ---
 
+## Step 0: Determine the Dialogue Language (DIALOGUE_LANGUAGE)
+
+Before research or writing begins, fix the **DIALOGUE_LANGUAGE** for the entire production:
+
+1. If the user explicitly requests a dialogue language (e.g. "with English dialogue", "台词用中文"), use that language.
+2. Otherwise, use the language the user's story idea was written in.
+
+Record it at the top of both `requirements.md` and `plot.md` as `DIALOGUE_LANGUAGE: <language>`.
+
+**Every dialogue line in script.md must be written in DIALOGUE_LANGUAGE only** — in that language's native script, with no parenthetical translations into any other language and no mixed-language lines. Downstream stages (storyboard video prompts, artifact checks) reuse this value verbatim; it plays the same role for dialogue that the STYLE_ANCHOR plays for visuals.
+
+---
+
 ## Step 1: In-Depth Research Using the web_search.py Script
 
 **You must search before writing any screenplay.** Call `python scripts/web_search.py` multiple times in parallel to gather:
@@ -49,7 +62,7 @@ Record the original requirements + a summary of the web_search research (charact
 
 Write in chapter structure, where the number of chapters = scene_count (each chapter corresponds to one scene).
 
-**While writing the outline, dynamically allocate a duration to each chapter (4 to 15 seconds)**, ensuring the total duration ≈ `total_seconds` (±10% tolerance allowed).
+**While writing the outline, dynamically allocate a duration to each chapter (4 to 30 seconds)**, ensuring the total duration ≈ `total_seconds` (±10% tolerance allowed).
 
 ### Smart Duration Allocation Decision Table
 
@@ -61,6 +74,9 @@ Write in chapter structure, where the number of chapters = scene_count (each cha
 | Emotional outburst (furious roar, do-or-die declaration, dying words) | **11–15 seconds** |
 | Dialogue-dense (needs 6+ lines of dialogue to fully express) | **11–15 seconds** |
 | Complex action choreography (multiple continuous action beats) | **12–15 seconds** |
+| Grand finale, the story's decisive battle | **20–30 seconds** |
+| Multi-phase showdown (2+ distinct phases in one scene) | **16–25 seconds** |
+| Complete emotional arc in a single scene (build-up → eruption → aftermath) | **16–24 seconds** |
 | Opening that establishes the world | **7–10 seconds** |
 | Transitional bridge, change of setting | **6–9 seconds** |
 | Simple conversation (3–5 lines of dialogue suffice) | **7–10 seconds** |
@@ -70,7 +86,7 @@ Write in chapter structure, where the number of chapters = scene_count (each cha
 | Montage transition, dream flash | **4–5 seconds** |
 | Jump scare, sudden event | **4–5 seconds** |
 
-> **Key principle**: duration variety > duration uniformity. A good comic drama's rhythm should rise and fall like a heartbeat — short and punchy like drumbeats in tense moments (4–6s), smooth like strings during setup (7–10s), and long like a symphony at the climax (11–15s).
+> **Key principle**: duration variety > duration uniformity. A good comic drama's rhythm should rise and fall like a heartbeat — short and punchy like drumbeats in tense moments (4–6s), smooth like strings during setup (7–10s), long like a symphony at the climax (11–15s), and an epic long take (16–30s) reserved for the grand finale.
 
 ### plot.md Structure
 
@@ -85,6 +101,10 @@ Write in chapter structure, where the number of chapters = scene_count (each cha
 
 **Character visual anchors**: Once each character's English AI prompt is finalized, it must be reused verbatim in all subsequent scenes;
 only the current scene's action/expression descriptions may be appended — the character's base appearance description must not be modified.
+
+**Dialogue language anchor**: DIALOGUE_LANGUAGE = {dialogue_language}
+> Every dialogue line in script.md, and every quoted dialogue line in downstream video prompts, must be written in this language only.
+> Mixing languages within a line, translating lines between stages, or adding parenthetical translations is forbidden.
 ```
 
 **World background** (3–5 lines): the worldbuilding, the current balance of power, and the spark of the conflict
@@ -153,7 +173,7 @@ Save as `plot.md`.
 
 This is the core deliverable. Write each scene (scene_count in total) in the following format.
 
-**Key change**: each chapter's second-by-second script timeline unfolds according to that chapter's allocated duration (a dynamic value from 4 to 15 seconds).
+**Key change**: each chapter's second-by-second script timeline unfolds according to that chapter's allocated duration (a dynamic value from 4 to 30 seconds).
 
 ### Short Scene Template (4–6 seconds, tense fast cuts / flashback / montage)
 
@@ -230,7 +250,9 @@ This is the core deliverable. Write each scene (scene_count in total) in the fol
 [The final frame: precise description of each character's position, posture, facing direction, and expression — used for storyboard image design]
 ```
 
-### Long Scene Template (11–15 seconds, climax / complex scenes)
+### Long Scene Template (11–30 seconds, climax / complex scenes)
+
+> For 16–30 second epic long takes, extend this template proportionally: more timeline entries, 10–16 lines of dialogue, and action beats structured into 3+ phases (or a complete build-up → eruption → aftermath arc).
 
 ```markdown
 ## Chapter N: [chapter title] (Duration: 14s)
@@ -286,7 +308,9 @@ This is the core deliverable. Write each scene (scene_count in total) in the fol
 | 4–6 seconds | 0–2 lines | 1–2 lines | Minimalist, driven by visual impact, lines short and punchy |
 | 7–10 seconds | 3–5 lines | 5–6 lines | Standard rhythm, one line every 2–3 seconds |
 | 11–15 seconds | 6–8 lines | 8–10 lines | Dense rhythm, one line every 1.5–2 seconds, rapid exchanges |
+| 16–30 seconds | 10–12 lines | 12–16 lines | Multi-phase rhythm: dense exchanges alternating with pure-action beats, no gap over 3 seconds |
 
+- **Every line must be written in DIALOGUE_LANGUAGE** (declared at the top of plot.md) — one language for the whole screenplay; never mix languages within a line and never add parenthetical translations
 - Every line must be bound to a timestamp (e.g. `0:02-0:04`), precise to a 2–3 second segment
 - Expression descriptions must be specific — never write "smiles"; write "the corner of his mouth curls coldly into a sneering arc"
 - Action descriptions must be specific — never write "attacks"; write "three fingers of the left hand pinch a seal while the right palm thrusts forward violently"
@@ -298,6 +322,10 @@ This is the core deliverable. Write each scene (scene_count in total) in the fol
   - Must contain at least 2 "tight exchanges" (two characters trading lines rapidly within 1.5 seconds)
   - One 3–4 second pure-action climax (e.g. the ultimate strike) may be inserted between lines, but the total dialogue volume must not decrease
   - Action beats must be described in 2–3 phases (wind-up → burst → aftermath)
+- **Special requirements for 16–30 second epic scenes**:
+  - Must contain at least 3 "tight exchanges" distributed across the scene's phases
+  - Structure the scene into 2–3 clear phases (e.g. standoff → eruption → aftermath), each with its own mini-climax
+  - Multiple 3–4 second pure-action beats may be inserted, but dialogue must resume within 4 seconds
 - **Special requirements for 4–6 second scenes**:
   - Dialogue centers on a single life-or-death line of impact, or pure visuals with no dialogue
   - Camera language replaces dialogue — convey information with extreme close-ups and fast cuts
@@ -346,7 +374,7 @@ After completing script.md, extract each chapter's duration to form the `scene_d
 scene_durations = [6, 8, 5, 10, 14, 12, 5]
 ```
 
-This list will be passed to `batch_video.py` via `--durations-file` in Step 6 (scene video generation). Each value is an integer between 4 and 15.
+This list will be passed to `batch_video.py` via `--durations-file` in Step 6 (scene video generation). Each value is an integer between 4 and 30.
 
 ---
 
@@ -415,11 +443,11 @@ Chapter 2: ⬛⬛⬛⬛⬛⬜⬜⬜⬜⬜ (5/10) — {emotion label}
 - **Ending chapters going out with a bang = fail**: the last 2 chapters must have a still/winding-down emotional settling; the film must not end on an explosive action beat
 - **web_search not executed = fail**: it must be completed before writing the screenplay
 - **No Scene Bridge = fail**: from Chapter 2 onward, every chapter must have a "Scene Bridge" subsection
-- **Insufficient dialogue density = fail**: 4–6 second scenes may have no dialogue but need visual impact; 7–10 second scenes need at least 3 lines; 11–15 second scenes need at least 6 lines; climax chapters must meet the upper-bound requirements
+- **Insufficient dialogue density = fail**: 4–6 second scenes may have no dialogue but need visual impact; 7–10 second scenes need at least 3 lines; 11–15 second scenes need at least 6 lines; 16–30 second scenes need at least 10 lines; climax chapters must meet the upper-bound requirements
 - **Broken dialogue rhythm = fail**: in scenes 7 seconds or longer, there must be no gap of more than 3 seconds without spoken content between lines
 - **Emotional discontinuity = fail**: emotions must transition sensibly between adjacent chapters, with no abrupt jumps
-- **No duration annotation = fail**: every chapter title must be annotated with a duration (an integer between 4 and 15 seconds)
-- **Unreasonable duration allocation = fail**: climax chapters must use 11–15 seconds, and the total duration must be within ±10% of the target
+- **No duration annotation = fail**: every chapter title must be annotated with a duration (an integer between 4 and 30 seconds)
+- **Unreasonable duration allocation = fail**: climax chapters must use at least 11 seconds (11–15s climax build-up, or a 16–30s epic long take for the grand finale), and the total duration must be within ±10% of the target
 - **Monotonous durations = fail**: the full duration list must contain at least 3 distinct duration values to avoid a one-note rhythm
-- **Underfilled long scenes = fail**: the second-by-second script of an 11–15 second scene must cover the full duration; writing only part of it and leaving the rest blank is not allowed
+- **Underfilled long scenes = fail**: the second-by-second script of an 11–30 second scene must cover the full duration; writing only part of it and leaving the rest blank is not allowed
 - **Overstuffed short scenes = fail**: 4–6 second scenes must not cram in more than 2 lines of dialogue; visual impact comes first

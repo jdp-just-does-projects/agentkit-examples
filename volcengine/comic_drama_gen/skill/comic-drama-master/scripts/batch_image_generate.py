@@ -96,6 +96,9 @@ def _generate_single(
             response = client.images.generate(
                 model=model,
                 prompt=prompt,
+                # 1024x1024 is the smallest size Seedream supports; the default
+                # (2048x2048) quadruples pixel count for no benefit in previews.
+                size="1024x1024",
                 response_format="b64_json",
             )
 

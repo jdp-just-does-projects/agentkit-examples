@@ -4,7 +4,7 @@
 
 **User input**:
 ```
-Please create a comic drama video about "Sun Wukong battles Erlang Shen (孙悟空大战二郎神)", in guoman (国漫, Chinese-style animation) 3D realistic style
+Please create a comic drama video about "Sun Wukong battles Erlang Shen (孙悟空大战二郎神)", in guoman (国漫, Chinese-style animation) 3D realistic style, with Chinese dialogue
 ```
 
 **Execution flow**:
@@ -12,7 +12,7 @@ Please create a comic drama video about "Sun Wukong battles Erlang Shen (孙悟�
 ### 1. Read configuration
 ```bash
 python scripts/app_config.py
-# Output: {"video_duration_minutes": 1, "total_seconds": 60, "smart_duration": true, "duration_range": {"min": 4, "max": 15}, "duration_options": "4s ~ 15s dynamic allocation", "scene_count_range": {"min": 4, "max": 15}, "recommended_scene_count": 6}
+# Output: {"video_duration_minutes": 1, "total_seconds": 60, "smart_duration": true, "duration_range": {"min": 4, "max": 30}, "duration_options": "4s ~ 30s dynamic allocation", "scene_count_range": {"min": 4, "max": 30}, "recommended_scene_count": 6}
 ```
 
 ### 2. Initialize the task
@@ -27,9 +27,10 @@ python scripts/task_manager.py init "Sun Wukong vs Erlang Shen"
 - Inform the user, then continue
 
 ### 4. Script generation (with smart duration allocation)
+- DIALOGUE_LANGUAGE = Chinese (explicitly requested by the user; otherwise it would default to the language the story idea was written in) — recorded at the top of requirements.md and plot.md; every dialogue line in script.md is written in Chinese only
 - web_search: "Sun Wukong battles Erlang Shen original storyline", "Erlang Shen Yang Jian abilities and magic weapons", "Journey to the West classic quotes"
 - Write requirements.md, plot.md, script.md
-- **Duration allocation** (4s ~ 15s dynamic range):
+- **Duration allocation** (4s ~ 30s dynamic range):
 
 ```
 Chapter 1: Wrath of the Heavenly Court (6s) — Atop Flower Fruit Mountain, heavenly troops close in  <- tense quick cuts, rapidly establish the atmosphere
@@ -63,7 +64,7 @@ Chinese fantasy 3D animation, cinematic quality, on a crumbling mountain peak un
 
 ### 7. Storyboard videos (smart-duration submission)
 
-Example video prompt (Scene 4, 14-second climactic duel; the quoted dialogue is intentionally left in Chinese so the characters speak Chinese on screen):
+Example video prompt (Scene 4, 14-second climactic duel; DIALOGUE_LANGUAGE = Chinese, so every quoted line is written in Chinese and the characters speak Chinese on screen — if DIALOGUE_LANGUAGE were English, every quoted line and every `speaks in ...` tag would be English instead):
 ```
 Chinese fantasy 3D animation, cinematic quality, ultra-high detail, dramatic color grading, on a crumbling mountain peak under blood-red sky dark clouds swirling lightning cracking, Sun Wukong wild golden fur golden eyes wearing golden chainmail armor with tiger-skin kilt, leaps into the air spinning Ruyi Jingu Bang overhead then slams it down with earth-shattering force, face contorted with wild battle joy eyes blazing with fighting spirit teeth bared in a fierce grin, Sun Wukong laughs wildly in Chinese: "二郎神，你这点本事还不够看！", Yang Jian grits teeth and shouts defiantly in Chinese: "泼猴休狂！看我三尖两刃刀！", Sun Wukong roars in Chinese: "哈哈，来得好！", Yang Jian growls in Chinese: "今日定要擒你！", Sun Wukong shouts in Chinese: "做梦！", dynamic tracking shot racing alongside the action camera tilting 45 degrees then ultra-slow motion 0.2x on moment of impact, epic battle orchestra with war drums and brass fanfare sword clashing metal SFX shockwave boom spiritual energy resonance hum
 ```
@@ -142,7 +143,7 @@ export VIDEO_DURATION_MINUTES=2
 - Example duration allocation: `[6, 8, 5, 10, 12, 14, 15, 14, 12, 8, 6, 10]` (120 seconds total)
 - Longer story arc: opening 3 chapters → development 3 chapters → climax 4 chapters → ending 2 chapters
 - Richer dialogue and more nuanced character development
-- 11~15-second scenes for core showdowns, 4~6-second quick cuts for tense transitions
+- 11~15-second scenes for core showdowns (16~30-second epic long takes for the final showdown), 4~6-second quick cuts for tense transitions
 
 ---
 
@@ -157,7 +158,7 @@ Workplace drama: an intern's underdog rise to CEO of a tech giant (职场风云�
 - visual_style = `anime style, cel-shaded, vibrant colors, expressive faces`
 - Settings: offices, meeting rooms, city skylines
 - Camera work: more close-ups and medium shots, fewer sweeping vistas
-- **Duration allocation notes**: urban stories are dialogue-driven — climax chapters (key negotiations/confrontations) use 11~15 seconds to fit dense dialogue, while everyday conversation scenes can move at a fast 4~8-second pace
+- **Duration allocation notes**: urban stories are dialogue-driven — climax chapters (key negotiations/confrontations) use 11~15 seconds (or 16~30 seconds for an epic finale) to fit dense dialogue, while everyday conversation scenes can move at a fast 4~8-second pace
 
 ---
 
@@ -194,6 +195,6 @@ After each task completes, `COMIC_DRAMA_OUTPUT_DIR` (defaults to `output/` under
     ├── final_video.md    # Final delivery document (with TOS links)
     ├── storyboard/       # Storyboard images (scene_01.jpg ~ scene_06.jpg)
     ├── characters/       # Character portraits (char_sunwukong.jpg, etc.)
-    ├── videos/           # Storyboard videos (scene_01.mp4 ~ scene_06.mp4, smart duration 4~15s)
+    ├── videos/           # Storyboard videos (scene_01.mp4 ~ scene_06.mp4, smart duration 4~30s)
     └── final/            # Merged comic drama (Sun_Wukong_vs_Erlang_Shen_final.mp4)
 ```
