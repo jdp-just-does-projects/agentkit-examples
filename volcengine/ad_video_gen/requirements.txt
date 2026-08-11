@@ -1,0 +1,5 @@
+agentkit-sdk-python==0.8.1
+google-adk==2.2.0
+veadk-python==1.0.9
+litellm==1.83.14
+json-repair==0.61.7
