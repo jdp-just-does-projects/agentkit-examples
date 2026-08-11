@@ -1,0 +1,19 @@
+[project]
+name = "ad_video_gen_seq"
+version = "0.1.0"
+description = "Sequential multi-agent ecommerce ad video generation sample."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "agentkit-sdk-python==0.8.1",
+    "google-adk==2.2.0",
+    "veadk-python==1.0.9",
+    "tos==2.8.7",
+    "volcengine-python-sdk==5.0.43",
+    "litellm==1.83.14",
+    "json-repair==0.61.7",
+    "moviepy>=2.2.1",
+    "aiohttp>=3.13.3",
+    "requests>=2.32.5",
+    "openai>=1.99.9",
+]
