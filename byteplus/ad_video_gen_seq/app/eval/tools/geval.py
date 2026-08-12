@@ -161,7 +161,9 @@ async def evaluate_media(
             },
             extra_body={"thinking": {"type": "disabled"}},
         )
-        return json.loads(response.output_text).get("evaluation", {})
+        # strict=False allows raw control characters (e.g. literal newlines) that
+        # the evaluation model sometimes emits inside JSON string values
+        return json.loads(response.output_text, strict=False).get("evaluation", {})
 
     # Use asyncio.gather to process all messages concurrently
     result = await asyncio.gather(*(process_message(msg) for msg in m_content))
