@@ -218,8 +218,18 @@ docs/node_modules/
 .zip
 .agent
 
-# comic_drama_gen run artifact
+# comic_drama_gen run artifacts (per-run state written by the comic-drama-master skill)
 char_prompts.json
+char_filenames.json
+durations.json
+frames.json
+image_prompts.json
+task_ids.json
+video_prompts.json
+retry_durations_*.json
+retry_frames_*.json
+retry_prompts_*.json
+retry_task_ids.json
 
 # Generated run output (scripts, storyboards, images, videos) — can be very large
 output/
