@@ -1,0 +1,28 @@
+model:
+  agent:
+    provider: openai
+    # name: dola-seed-2-1-turbo-260628 # vision-capable alternative
+    name: deepseek-v4-pro-260425
+    api_base: https://ark.ap-southeast.bytepluses.com/api/v3
+    api_key:
+  format:
+    # Formatting is text-only; point this at a cheaper model if you have one enabled
+    name: deepseek-v4-pro-260425
+  # [optional] vision-capable model used by the evaluate_media scoring tool
+  # (it looks at the generated images/videos); defaults to
+  # dola-seed-2-1-turbo-260628 when unset.
+  # evaluate_item: dola-seed-2-1-turbo-260628
+
+shorten_url_service_url: http://127.0.0.1:8005
+
+logging:
+  # ERROR
+  # WARNING
+  # INFO
+  # DEBUG
+  level: DEBUG
+
+thinking:
+  evaluate_agent: disabled
+  image_format_agent: disabled
+  video_format_agent: disabled

@@ -1,0 +1,10 @@
+agentkit-sdk-python==0.8.1
+google-adk==2.2.0
+veadk-python[extensions]==1.0.10
+litellm==1.83.14
+json-repair==0.61.7
+openai==2.24.0
+uvicorn[standard]>=0.38.0
+fastapi>=0.141.1
+fastmcp>=2.14.7,<3
+aiohttp>=3.13.4
