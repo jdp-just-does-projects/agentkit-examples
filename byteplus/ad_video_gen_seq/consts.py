@@ -33,6 +33,9 @@ def set_veadk_environment_variables():
     `config.yaml` (see `config.yaml.example`), and veadk lets an environment
     variable that is already set win over the matching `config.yaml` key — so
     setting MODEL_* here would silently override the user's config file.
+    Current-generation model fallbacks for runs without a `config.yaml` are
+    instead filled in by `agent.py` *after* veadk has flattened `config.yaml`
+    into the environment, which preserves the config file's precedence.
     """
     os.environ.setdefault(
         "CLOUD_PROVIDER", os.getenv("AGENTKIT_CLOUD_PROVIDER", "byteplus")

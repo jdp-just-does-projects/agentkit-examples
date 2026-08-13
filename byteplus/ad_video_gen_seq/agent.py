@@ -14,6 +14,7 @@
 
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -41,6 +42,30 @@ from veadk.models.ark_llm import ArkLlm
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+#### Model defaults
+
+# veadk's built-in BytePlus fallbacks lag the current model generation
+# (`seed-1-6-250915` for the agent LLM, Seedance 1.5 for video, Seedream 4.5
+# for images), so a run without a `config.yaml` silently lands on very old
+# models. veadk has already flattened `config.yaml` / `.env` into os.environ
+# during its import above, so filling in defaults with setdefault here keeps
+# the documented precedence: environment > config.yaml > these defaults.
+# `settings.model` snapshotted its values before these defaults existed, so
+# rebuild it afterwards; the sub-agents read it when `app` is imported below.
+import veadk.config as _veadk_config
+
+for _key, _value in {
+    "MODEL_AGENT_NAME": "dola-seed-2-1-turbo-260628",
+    "MODEL_EVALUATE_NAME": "dola-seed-2-1-turbo-260628",
+    "MODEL_IMAGE_NAME": "dola-seedream-5-0-pro-260628",
+    "MODEL_VIDEO_NAME": "dreamina-seedance-2-5-260628",  # Seedance 2.5
+}.items():
+    os.environ.setdefault(_key, _value)
+
+_veadk_config.settings.model = type(_veadk_config.settings.model)()
+
+#### End of model defaults
 
 #### Start of workaround
 
@@ -88,6 +113,58 @@ def _parse_tool_call_arguments_with_repair(arguments):
 
 
 _lite_llm._parse_tool_call_arguments = _parse_tool_call_arguments_with_repair
+
+#### END OF WORKAROUND
+
+#### Start of workaround
+
+# The lite_llm patch above does not cover this pipeline's actual runtime path:
+# every sub-agent sets `enable_responses=True`, so requests go through veadk's
+# ArkLlm (Ark Responses API), where tool-call arguments are parsed with a bare
+# `json.loads(output.arguments)` in event_to_generate_content_response
+# (veadk/models/ark_llm.py). Malformed arguments (same failure mode as above)
+# therefore still abort the whole run with a JSONDecodeError. Repair the
+# arguments in place before veadk parses them; leave them untouched when repair
+# fails so the original error still surfaces. Still required as of
+# veadk-python 1.0.9; recheck on upgrades.
+import veadk.models.ark_llm as _ark_llm
+
+_original_event_to_generate_content_response = _ark_llm.event_to_generate_content_response
+
+
+def _repair_ark_function_call_arguments(event):
+    # Only full responses carry `output`; stream delta events do not.
+    for output in getattr(event, "output", None) or []:
+        if not isinstance(output, _ark_llm.ResponseFunctionToolCall):
+            continue
+        arguments = output.arguments
+        if not arguments:
+            continue
+        try:
+            json.loads(arguments)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Model produced malformed Responses-API tool-call arguments, "
+                "attempting repair: %r",
+                arguments,
+            )
+            repaired = repair_json(arguments, return_objects=True)
+            if isinstance(repaired, dict) and repaired:
+                output.arguments = json.dumps(repaired, ensure_ascii=False)
+
+
+def _event_to_generate_content_response_with_repair(*args, **kwargs):
+    event = kwargs.get("event", args[0] if args else None)
+    if event is not None:
+        _repair_ark_function_call_arguments(event)
+    return _original_event_to_generate_content_response(*args, **kwargs)
+
+
+# Both veadk call sites (streaming and non-streaming) resolve this function
+# through module globals at call time, so patching the attribute covers both.
+_ark_llm.event_to_generate_content_response = (
+    _event_to_generate_content_response_with_repair
+)
 
 #### END OF WORKAROUND
 

@@ -17,6 +17,7 @@ import json
 import os
 from typing import Any
 
+from json_repair import repair_json
 from openai import AsyncOpenAI
 from veadk.auth.veauth.ark_veauth import get_ark_token
 from veadk.consts import DEFAULT_MODEL_AGENT_API_BASE
@@ -60,21 +61,36 @@ async def repair_evaluate_input(
             if len(reference_media.strip()) == 0:
                 continue
 
+            # At the video stage the reference is a shortened ⌥code, not a URL;
+            # sending it raw makes Ark reject the request with
+            # InvalidParameter "invalid scheme" on param `url`.
+            resolved_reference = resolve_code2url(reference_media.strip())
+            if not resolved_reference.lower().startswith(("http://", "https://")):
+                logger.warning(
+                    f"Skipping reference that did not resolve to a URL for shot_id={shot_id}: {reference_media!r}"
+                )
+                continue
+
             reference_part = {
                 "type": "input_image",
-                "image_url": reference_media,
+                "image_url": resolved_reference,
             }  # Only images will be referenced
             reference_part_list.append(reference_part)
 
         for i, media_url in enumerate(media_url_list):
             resolved_media_url = resolve_code2url(media_url)
+            if not resolved_media_url.lower().startswith(("http://", "https://")):
+                logger.warning(
+                    f"Skipping media that did not resolve to a URL for shot_id={shot_id}, media_id={i}: {media_url!r}"
+                )
+                continue
 
             text_part = {
                 "type": "input_text",
                 "text": (
-                    f"This {MEDIA} has shot_id={shot_id}, media_id={i}. You received {len(reference_media_list) + 1} media items in total; the first {MEDIA} is the {MEDIA} you need to evaluate"
-                    + f", and the remaining {len(reference_media_list)} images are all reference images."
-                    if len(reference_media_list) > 0
+                    f"This {MEDIA} has shot_id={shot_id}, media_id={i}. You received {len(reference_part_list) + 1} media items in total; the first {MEDIA} is the {MEDIA} you need to evaluate"
+                    + f", and the remaining {len(reference_part_list)} images are all reference images."
+                    if len(reference_part_list) > 0
                     else "" + "Please evaluate the media item as required and output a result in the required format."
                 ),
             }
@@ -162,8 +178,20 @@ async def evaluate_media(
             extra_body={"thinking": {"type": "disabled"}},
         )
         # strict=False allows raw control characters (e.g. literal newlines) that
-        # the evaluation model sometimes emits inside JSON string values
-        return json.loads(response.output_text, strict=False).get("evaluation", {})
+        # the evaluation model sometimes emits inside JSON string values; fall
+        # back to json-repair for anything strict=False cannot handle (e.g. an
+        # unescaped quote), logging the raw payload for diagnosis.
+        try:
+            parsed = json.loads(response.output_text, strict=False)
+        except json.JSONDecodeError:
+            logger.warning(
+                "Evaluation model returned malformed JSON, attempting repair: %r",
+                response.output_text,
+            )
+            parsed = repair_json(response.output_text, return_objects=True)
+            if not isinstance(parsed, dict):
+                raise
+        return parsed.get("evaluation", {})
 
     # Use asyncio.gather to process all messages concurrently
     result = await asyncio.gather(*(process_message(msg) for msg in m_content))
