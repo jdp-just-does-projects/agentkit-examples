@@ -81,7 +81,7 @@ export AGENTKIT_CLOUD_PROVIDER=byteplus
 export CLOUD_PROVIDER=byteplus
 ```
 
-**Note:** `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. The agent sets `CLOUD_PROVIDER=byteplus` automatically at startup (see `consts.py`), so exporting it is optional but recommended for clarity.
+**Note:** `AGENTKIT_CLOUD_PROVIDER` and `CLOUD_PROVIDER` are both **mandatory** — export them in every shell you run this sample from, and pass both through to the deployed runtime. `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Without them the SDKs fall back to their Volcano Engine (mainland China) defaults and calls against your BytePlus account fail. `consts.py` sets `CLOUD_PROVIDER=byteplus` as a last-resort fallback inside the agent process, but that does not cover the agentkit SDK or the tools when run standalone, so do not rely on it.
 
 The agent, image, and video model names and API bases default to the values in [`consts.py`](consts.py) (`deepseek-v4-pro-260425`, `dola-seedream-5-0-pro-260628`, and `dreamina-seedance-2-5-260628` on the `ap-southeast` ModelArk endpoint). To override any of them, set the corresponding environment variables before starting the agent:
 

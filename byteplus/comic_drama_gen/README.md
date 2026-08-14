@@ -134,9 +134,10 @@ BYTEPLUS_ACCESS_KEY=your_ak
 BYTEPLUS_SECRET_KEY=your_sk
 MODEL_AGENT_API_KEY=your_ark_api_key
 DATABASE_TOS_BUCKET=agentkit-platform-{{your_account_id}}
+AGENTKIT_CLOUD_PROVIDER=byteplus
+CLOUD_PROVIDER=byteplus
 
 # Optional
-CLOUD_PROVIDER=byteplus
 COMIC_DRAMA_OUTPUT_DIR=./my-comic-drama
 VIDEO_DURATION_MINUTES=0.5
 DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
@@ -151,19 +152,19 @@ DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 export BYTEPLUS_ACCESS_KEY=your_ak
 export BYTEPLUS_SECRET_KEY=your_sk
 export MODEL_AGENT_API_KEY=your_ark_api_key
+export AGENTKIT_CLOUD_PROVIDER=byteplus
+export CLOUD_PROVIDER=byteplus
 
 # TOS bucket (for uploading generated videos)
 export DATABASE_TOS_BUCKET=agentkit-platform-{{your_account_id}}
 
 # Optional
-export AGENTKIT_CLOUD_PROVIDER=byteplus
-export CLOUD_PROVIDER=byteplus
 export COMIC_DRAMA_OUTPUT_DIR=./my-comic-drama
 export VIDEO_DURATION_MINUTES=0.5
 export DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 ```
 
-**Note:** `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. The agent sets `CLOUD_PROVIDER=byteplus` automatically at startup (see `consts.py`), so exporting it is optional but recommended for clarity and for running the skill scripts standalone.
+**Note:** `AGENTKIT_CLOUD_PROVIDER` and `CLOUD_PROVIDER` are both **mandatory** — set them in your `.env` file or export them in every shell you run this sample from, and pass both through to the deployed runtime. `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Without them the SDKs fall back to their Volcano Engine (mainland China) defaults and calls against your BytePlus account fail. `consts.py` sets `CLOUD_PROVIDER=byteplus` as a last-resort fallback inside the agent process, but that does not cover the agentkit SDK or the skill scripts when run standalone, so do not rely on it.
 
 **Environment Variables Reference:**
 
@@ -171,7 +172,8 @@ export DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 |----------|----------|---------|-------------|
 | `BYTEPLUS_ACCESS_KEY` | ✅ | — | BytePlus access key |
 | `BYTEPLUS_SECRET_KEY` | ✅ | — | BytePlus secret key |
-| `CLOUD_PROVIDER` | ❌ | `byteplus` (set by consts.py) | Points veADK's default endpoints and models at BytePlus |
+| `AGENTKIT_CLOUD_PROVIDER` | ✅ | — | Points the agentkit SDK at BytePlus |
+| `CLOUD_PROVIDER` | ✅ | — | Points veADK's default endpoints and models at BytePlus (`consts.py` falls back to `byteplus`, but export it anyway) |
 | `MODEL_AGENT_API_KEY` | ✅ | — | ModelArk API key (`ARK_API_KEY` also works — whichever is set is mirrored to the other) |
 | `DATABASE_TOS_BUCKET` | ✅ | — | TOS bucket name |
 | `COMIC_DRAMA_OUTPUT_DIR` | ❌ | `output/` under project dir | Output root directory |
@@ -313,6 +315,8 @@ uv run agentkit config \
   --entry_point 'agent.py' \
   --runtime_envs DATABASE_TOS_BUCKET=$DATABASE_TOS_BUCKET \
   --runtime_envs MODEL_AGENT_API_KEY=$MODEL_AGENT_API_KEY \
+  --runtime_envs AGENTKIT_CLOUD_PROVIDER=byteplus \
+  --runtime_envs CLOUD_PROVIDER=byteplus \
   --launch_type cloud
 ```
 

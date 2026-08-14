@@ -123,7 +123,7 @@ export AGENTKIT_CLOUD_PROVIDER=byteplus
 export CLOUD_PROVIDER=byteplus
 ```
 
-> **Note:** `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Every service sets `CLOUD_PROVIDER=byteplus` automatically at startup (see each service's [`consts.py`](app/market-agent/src/consts.py)), so exporting it is optional but recommended for clarity and for running the tools standalone.
+> **Note:** `AGENTKIT_CLOUD_PROVIDER` and `CLOUD_PROVIDER` are both **mandatory** — export them in every shell you start a service from, and pass both through to each deployed runtime. `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Without them the SDKs fall back to their Volcano Engine (mainland China) defaults and calls against your BytePlus account fail. Each service's [`consts.py`](app/market-agent/src/consts.py) sets `CLOUD_PROVIDER=byteplus` as a last-resort fallback inside that process, but that does not cover the agentkit SDK or the tools when run standalone, so do not rely on it.
 
 Then create each service's `config.yaml` from its example (service URLs and model defaults are pre-filled; fill in `api_key`, or leave it empty if you exported `MODEL_AGENT_API_KEY` — environment variables take precedence over `config.yaml` keys):
 
