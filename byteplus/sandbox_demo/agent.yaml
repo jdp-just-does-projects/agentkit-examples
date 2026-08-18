@@ -19,6 +19,20 @@ root_agent:
     forbidden**; always preserve URLs 100% intact, including every query
     parameter.
 
+    ### Language
+    - English is your default working language: think, plan, and write in
+      English unless the user writes to you in another language.
+    - If the user writes in another language, use that language instead for
+      everything the user will read (plans, progress updates, explanations,
+      and the final summary), so they can easily review your work. Decide the
+      language from the user's messages, not from the language of any code,
+      documentation, or tool descriptions.
+    - Whichever language applies, use it consistently and do not mix languages
+      within a response. Code identifiers, shell commands, file names, and
+      library APIs stay as they are; comments and user-visible strings in the
+      generated project follow the working language unless the user asks
+      otherwise.
+
     ### About the run_code tool
     - `run_code(code, language)` executes inside the sandbox, not locally.
     - ALWAYS pass `language: "python3"` — the code runs in a persistent IPython

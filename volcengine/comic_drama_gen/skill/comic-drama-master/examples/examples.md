@@ -27,7 +27,7 @@ python scripts/task_manager.py init "Sun Wukong vs Erlang Shen"
 - Inform the user, then continue
 
 ### 4. Script generation (with smart duration allocation)
-- DIALOGUE_LANGUAGE = English (always — it is fixed for every production) — recorded at the top of requirements.md and plot.md; every dialogue line in script.md is written in English only, even though the story is drawn from Chinese mythology
+- WORKING_LANGUAGE = English and DIALOGUE_LANGUAGE = English (the user wrote in English, so the default applies) — recorded at the top of requirements.md and plot.md; every dialogue line in script.md is written in English, even though the story is drawn from Chinese mythology
 - web_search: "Sun Wukong battles Erlang Shen original storyline", "Erlang Shen Yang Jian abilities and magic weapons", "Journey to the West classic quotes"
 - Write requirements.md, plot.md, script.md
 - **Duration allocation** (4s ~ 30s dynamic range):
@@ -64,7 +64,7 @@ Chinese fantasy 3D animation, cinematic quality, on a crumbling mountain peak un
 
 ### 7. Storyboard videos (smart-duration submission)
 
-Example video prompt (Scene 4, 14-second climactic duel; every quoted line is English and every speech tag reads `in English`, so the characters speak English on screen):
+Example video prompt (Scene 4, 14-second climactic duel; DIALOGUE_LANGUAGE is English here, so every quoted line is English and every speech tag reads `in English`, and the characters speak English on screen):
 ```
 Chinese fantasy 3D animation, cinematic quality, ultra-high detail, dramatic color grading, on a crumbling mountain peak under blood-red sky dark clouds swirling lightning cracking, Sun Wukong wild golden fur golden eyes wearing golden chainmail armor with tiger-skin kilt, leaps into the air spinning Ruyi Jingu Bang overhead then slams it down with earth-shattering force, face contorted with wild battle joy eyes blazing with fighting spirit teeth bared in a fierce grin, Sun Wukong laughs wildly in English: "Erlang Shen, this little trick of yours is nowhere near enough!", Yang Jian grits teeth and shouts defiantly in English: "Enough of your swagger, monkey! Taste my three-pointed blade!", Sun Wukong roars in English: "Ha! Now that is more like it!", Yang Jian growls in English: "Today I take you in!", Sun Wukong shouts in English: "Keep dreaming!", dynamic tracking shot racing alongside the action camera tilting 45 degrees then ultra-slow motion 0.2x on moment of impact, epic battle orchestra with war drums and brass fanfare sword clashing metal SFX shockwave boom spiritual energy resonance hum
 ```
@@ -177,7 +177,7 @@ Workplace drama: an intern's underdog rise to CEO of a tech giant, in Japanese 2
 | Urban             | "Workplace drama: an intern's underdog rise to CEO of a tech giant"                       |
 | Children's        | "A little fox searches for star fragments"                                                |
 
-> Every one of these produces an **English** comic drama: English documents, English prompts, and characters speaking English on screen — whatever the story's origin.
+> Every one of these produces an **English** comic drama by default: English documents, English prompts, and characters speaking English on screen — whatever the story's origin. If the user writes their request in another language (for example 《孙悟空大战二郎神》 in Chinese), the whole production — replies, documents, prompts, and the spoken dialogue — is done in that language instead.
 
 ---
 
@@ -191,7 +191,7 @@ After each task completes, `COMIC_DRAMA_OUTPUT_DIR` (defaults to `output/` under
     ├── requirements.md   # Requirements document (with web_search research summary)
     ├── plot.md           # Chapter-based plot outline (with smart duration allocation)
     ├── script.md         # Full dialogue script (with second-by-second timestamps + per-chapter durations)
-    ├── characters.md     # Character designs (with English prompts + character portrait images)
+    ├── characters.md     # Character designs (with character prompts + character portrait images)
     ├── cover.jpg         # Cover image
     ├── cover.md          # Cover info
     ├── final_video.md    # Final delivery document (with TOS links)

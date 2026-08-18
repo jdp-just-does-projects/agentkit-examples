@@ -15,7 +15,7 @@ An AI-powered comic drama production Agent built on BytePlus AgentKit. Simply in
 - **Professional Camera Language**: Built-in director-level camera strategies (speed ramps, 360° orbits, tracking shots, etc.)
 - **Content Safety Pre-screening**: Automatic risk assessment with proactive handling of sensitive content
 - **Style Consistency**: STYLE_ANCHOR maintained throughout the entire workflow with strict character prompt reuse
-- **English Throughout**: Every output is in English — the agent's replies, the generated documents, the image and video prompts, and the dialogue the characters speak on screen
+- **English by Default**: The agent works in English by default — its replies, the generated documents, the image and video prompts, and the dialogue the characters speak on screen. If you write to it in another language, it switches to that language for all of those outputs (and the characters speak it) so the results are easy for you to review
 - **Output Verification**: Automatic file integrity checks + AI quality scoring after each step
 - **Multi-Genre Support**: Mythology, martial arts, cultivation, urban, sci-fi, children's stories, and 10+ more genres
 - **MCP Tool Integration**: Video editing capability via `@pickstar-2002/video-clip-mcp`
@@ -287,7 +287,7 @@ After each task completes, the `COMIC_DRAMA_OUTPUT_DIR` (defaults to `output/` u
     ├── requirements.md   # Requirements document (with web_search research summary)
     ├── plot.md           # Chapter-based plot outline (with smart duration allocation)
     ├── script.md         # Complete dialogue script (with per-second timestamps + per-chapter duration)
-    ├── characters.md     # Character design (STYLE_ANCHOR + English prompts + portrait images)
+    ├── characters.md     # Character design (STYLE_ANCHOR + character prompts + portrait images)
     ├── cover.jpg         # Cover image
     ├── cover.md          # Cover information
     ├── final_video.md    # Final delivery document (with TOS link)

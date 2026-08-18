@@ -47,6 +47,8 @@ Key features include:
 - **Local MCP Tool Integration**: Utilizes the Model Context Protocol for efficient local video processing without cloud dependencies.
 - **Automatic Upload & Sharing**: Uploads the completed video to TOS and generates a time-limited signed URL for secure sharing.
 - **Iterative Optimization**: Maintains conversation context, allowing users to request adjustments to style, pacing, or content.
+- **English-First Output**: The agent is instructed (in [`agent.yaml`](agent.yaml)) to think, plan, and write everything in English by default — its scene breakdown, status messages, image/video prompts, and final answer — so outputs are easy to review. If the user writes in another language, the agent switches to that language for all of its output instead.
+- **No Speech in Videos**: Seedance 2.5 generates audio natively, so the agent asks for instrumental background music and ambient sound effects only. Every video prompt explicitly rules out dialogue, voiceover, narration, singing, lyrics, subtitles, and on-screen text; the story is told through visuals, motion, music, and ambient sound.
 
 ## Agent Capabilities
 
@@ -149,6 +151,8 @@ Visit `http://localhost:8000` in your browser, select the `video_gen` agent, ent
 - **Wuxia Novels**: "A live-action video story of The Legend of the Condor Heroes (射雕英雄传的真人版视频故事)"
 - **Xuanhuan Novels**: "Han Li forming his Nascent Soul in A Record of a Mortal's Journey to Immortality (凡人修仙传韩立结婴)"
 - **3D Animation**: "The great battle in the Void Sky Palace from A Record of a Mortal's Journey to Immortality, in 3D animation style (凡人修仙传虚天殿大战,3D 动漫风格)"
+
+You can type prompts in any language (the examples above include the original Chinese titles). The agent replies, plans, and writes its image/video prompts in English by default, or in your language if you write in another one; the generated videos contain music and ambient sound but no speech.
 
 **Expected Behavior:**
 

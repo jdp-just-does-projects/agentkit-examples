@@ -367,11 +367,16 @@ def _score_plot_coherence(task_folder: Path, scene_count: int) -> Dict:
     if not plot:
         return {"score": 0, "comment": "plot.md missing or empty"}
 
-    # Check chapter count (artifacts are written in English: "## Chapter 3: ..."
-    # as a heading, or "Chapter 3: ... (5s)" as an outline line). Count distinct
-    # chapter numbers so the outline and the headings are not double-counted.
+    # Check chapter count. Artifacts are written in the working language —
+    # English by default ("## Chapter 3: ..." as a heading, or "Chapter 3: ...
+    # (5s)" as an outline line) or the user's language (Chinese headings such
+    # as "第三章" / "## 场景 3" are also recognised; other languages fall back
+    # to the numbered-heading form). Count distinct chapter markers so the
+    # outline and the headings are not double-counted.
     chapter_markers = set(
         re.findall(r"(?im)^\s*(?:#{1,4}\s*)?(?:chapter|scene)\s+(\d+)\s*:", plot)
+    ) | set(
+        re.findall(r"(?m)^\s*(?:#{1,4}\s*)?(?:第\s*([一二三四五六七八九十\d]+)\s*章|场景\s*(\d+))", plot)
     )
     if len(chapter_markers) >= scene_count:
         score += 4
@@ -382,8 +387,8 @@ def _score_plot_coherence(task_folder: Path, scene_count: int) -> Dict:
     else:
         comments.append(f"chapter count {len(chapter_markers)} far below scene count {scene_count}")
 
-    # Check duration markers ("6s", "6 sec", "6 seconds")
-    duration_markers = re.findall(r"(?i)\d+\s*(?:seconds?|secs?|s)\b", plot)
+    # Check duration markers ("6s", "6 sec", "6 seconds", "6秒")
+    duration_markers = re.findall(r"(?i)\d+\s*(?:seconds?|secs?|s\b|秒)", plot)
     if len(duration_markers) >= scene_count * 0.8:
         score += 3
         comments.append("duration markers complete")
@@ -399,7 +404,8 @@ def _score_plot_coherence(task_folder: Path, scene_count: int) -> Dict:
         score += 1
         comments.append("content moderate")
 
-    # Check for story-arc markers (English keywords matched against plot.md content)
+    # Check for story-arc markers (English and Chinese keywords matched against
+    # plot.md content; the documents are written in the working language)
     arc_keywords = [
         "setup",
         "development",
@@ -410,6 +416,13 @@ def _score_plot_coherence(task_folder: Path, scene_count: int) -> Dict:
         "turning point",
         "ending",
         "afterglow",
+        "开端",
+        "发展",
+        "高潮",
+        "结局",
+        "铺垫",
+        "转折",
+        "收尾",
     ]
     plot_lower = plot.lower()
     arc_found = sum(1 for kw in arc_keywords if kw in plot_lower)
@@ -446,10 +459,10 @@ def _score_dialogue_richness(task_folder: Path, durations: List[int]) -> Dict:
         comments.append(f"insufficient dialogue ({len(dialogue_lines)} lines)")
 
     # Check speaker variety: names are bolded (`**Han Li** (...): "..."`) or written
-    # plainly before a colon (`Han Li: "..."`)
-    speaker_patterns = re.findall(r"\*\*([A-Za-z][A-Za-z .'\-]{1,30})\*\*", script)
+    # plainly before a colon (`Han Li: "..."` / `韩立："..."`)
+    speaker_patterns = re.findall(r"\*\*([^*\n]{1,30})\*\*", script)
     speaker_patterns += re.findall(
-        r"(?m)^\s*([A-Z][A-Za-z .'\-]{1,30}?)\s*:\s*[\"“]", script
+        r"(?m)^\s*([A-Z][A-Za-z .'\-]{1,30}?|[\u4e00-\u9fff·]{1,10})\s*[:：]\s*[\"“]", script
     )
     unique_speakers = len({s.strip().lower() for s in speaker_patterns})
     if unique_speakers >= 2:
@@ -459,8 +472,8 @@ def _score_dialogue_richness(task_folder: Path, durations: List[int]) -> Dict:
         score += 1
         comments.append("only 1 speaking character")
 
-    # Check timestamps ("0:04", "6s", "6 seconds", "T=4")
-    timestamps = re.findall(r"(?i)\d+:\d+|\d+\s*(?:seconds?|secs?|s)\b|T=\d+", script)
+    # Check timestamps ("0:04", "6s", "6 seconds", "6秒", "T=4")
+    timestamps = re.findall(r"(?i)\d+:\d+|\d+\s*(?:seconds?|secs?|s\b|秒)|T=\d+", script)
     if len(timestamps) >= len(durations):
         score += 2
         comments.append("per-scene timestamps complete")
@@ -468,10 +481,10 @@ def _score_dialogue_richness(task_folder: Path, durations: List[int]) -> Dict:
         score += 1
         comments.append("partial timestamps")
 
-    # Check scene ending states (the English screenplay template writes
+    # Check scene ending states (the screenplay template — English by default, Chinese also recognised — writes
     # "### Scene End State")
     end_states = re.findall(
-        r"(?:scene end state|ending state|end state)", script, re.IGNORECASE
+        r"(?:scene end state|ending state|end state|场景结束状态|结束状态)", script, re.IGNORECASE
     )
     if len(end_states) >= len(durations) * 0.5:
         score += 2
@@ -555,7 +568,8 @@ def _score_emotional_tension(task_folder: Path, durations: List[int]) -> Dict:
     script = _read_file_safe(task_folder / "script.md", max_chars=10000)
     combined = plot + script
 
-    # Check emotion keywords (English keywords matched against plot/script content)
+    # Check emotion keywords (English and Chinese keywords matched against
+    # plot/script content; the documents are written in the working language)
     tension_keywords = [
         "climax",
         "turning point",
@@ -575,6 +589,21 @@ def _score_emotional_tension(task_folder: Path, durations: List[int]) -> Dict:
         "awaken",
         "defiant",
         "grief",
+        "高潮",
+        "转折",
+        "对决",
+        "爆发",
+        "震怒",
+        "紧张",
+        "激烈",
+        "悲壮",
+        "怒吼",
+        "嘶吼",
+        "震撼",
+        "绝望",
+        "希望",
+        "牺牲",
+        "觉醒",
     ]
     combined_lower = combined.lower()
     found_keywords = [kw for kw in tension_keywords if kw in combined_lower]
@@ -616,7 +645,8 @@ def _score_emotional_tension(task_folder: Path, durations: List[int]) -> Dict:
             score += 1
             comments.append("climax scene too early")
 
-    # Camera-work keywords (English terms matched against plot/script content)
+    # Camera-work keywords (English and Chinese terms matched against
+    # plot/script content; the documents are written in the working language)
     camera_keywords = [
         "close-up",
         "medium shot",
@@ -635,6 +665,16 @@ def _score_emotional_tension(task_folder: Path, durations: List[int]) -> Dict:
         "dolly",
         "orbit",
         "zoom",
+        "特写",
+        "近景",
+        "远景",
+        "仰角",
+        "俯瞰",
+        "追踪",
+        "慢动作",
+        "快切",
+        "推镜",
+        "环绕",
     ]
     cam_found = [kw for kw in camera_keywords if kw in combined.lower()]
     if len(cam_found) >= 3:
@@ -739,12 +779,18 @@ def auto_detect_from_plot(
             durations = [int(x.strip()) for x in m.group(1).split(",") if x.strip()]
             return len(durations), durations
 
-        # Try to match the English "Chapter N: xxx (Ns)" / "## Chapter N: ... (Duration: Ns)"
-        # format used by plot.md and script.md
+        # Try to match the "Chapter N: xxx (Ns)" / "## Chapter N: ... (Duration: Ns)"
+        # format used by plot.md and script.md (English by default), or the
+        # Chinese equivalent "第N章 ... (N秒)" / "场景N ... N秒"
         chapters = re.findall(
-            r"(?i)(?:chapter|scene)\s+\d+\s*:.*?(\d+)\s*(?:seconds?|secs?|s)\b",
+            r"(?i)(?:chapter|scene)\s+\d+\s*:.*?(\d+)\s*(?:seconds?|secs?|s\b|秒)",
             content,
         )
+        if not chapters:
+            chapters = re.findall(
+                r"(?:第[一二三四五六七八九十\d]+章|场景\s*\d+).*?(\d+)\s*(?:秒|s\b)",
+                content,
+            )
         if chapters:
             durations = [int(x) for x in chapters]
             return len(durations), durations

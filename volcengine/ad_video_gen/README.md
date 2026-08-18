@@ -32,6 +32,8 @@ Key features include:
 - **Product image reference input**: publicly accessible product image URLs are passed to the image model as image-to-image references, preserving product appearance, packaging, and colors
 - **Image-to-video generation**: the 2x2 grid image is passed to Seedance 2.5 via `reference_images` (not as a first/last frame) to generate one continuous video
 - **Preview-ready output**: results are returned as Markdown images and an HTML video tag, previewable directly in the AgentKit debug page
+- **English by Default**: The agent plans, writes its image/video prompts, and replies in English by default; if you write in another language it switches to that language for all of its output so the results are easy to review (see the `# Language` section in [`prompt.py`](prompt.py))
+- **No speech in the video**: the video prompt asks for instrumental background music and ambient sound only — no dialogue, voiceover, narration, or lyrics — so the message is carried by visuals, motion, and short on-screen text
 
 ## Agent Capabilities
 

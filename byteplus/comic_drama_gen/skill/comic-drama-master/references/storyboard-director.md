@@ -10,19 +10,19 @@ Obtain from the conversation context:
 - `videos_dir`: directory where videos are saved
 - `task_folder`: task root directory (used to find storyboard/ and for scoring)
 - The screenplay (each chapter's second-by-second script and dialogue lines in script.md, including each chapter's duration annotation)
-- Character designs (the English prompts + STYLE_ANCHOR in characters.md)
+- Character designs (the character prompts + STYLE_ANCHOR in characters.md)
 - The unified visual style
-- `DIALOGUE_LANGUAGE` (declared at the top of plot.md): always `English` — the language every character speaks on screen
+- `WORKING_LANGUAGE` and `DIALOGUE_LANGUAGE` (declared at the top of plot.md): the language you write in (English by default, or the user's language) and the language every character speaks on screen (the same, unless the user asked otherwise)
 
-## Step 1: Extract the Style Anchor; the Language Is Already Fixed
+## Step 1: Extract the Style Anchor and the Language Anchors
 
 Extract the **STYLE_ANCHOR** from the top of characters.md; every video prompt must begin with this string.
 
-**The whole prompt is written in English, and so is every quoted dialogue line inside it** (`DIALOGUE_LANGUAGE` is always `English`, and every speech tag reads `speaks in English`). The video model speaks exactly what is inside the quotes, so a quoted line containing Chinese produces a clip in which the characters speak Chinese. Keep every quote in English.
+**The whole prompt is written in WORKING_LANGUAGE, and every quoted dialogue line inside it is written in DIALOGUE_LANGUAGE** (every speech tag reads `speaks in {DIALOGUE_LANGUAGE}`, e.g. `speaks in English`). The video model speaks exactly what is inside the quotes, so a quoted line in the wrong language produces a clip in which the characters speak that language. Keep every quote in DIALOGUE_LANGUAGE.
 
 ## Step 2: Build a Director-Grade Video Prompt for Each Scene
 
-Every video prompt must begin with the **STYLE_ANCHOR** and then include the following **seven dimensions**, **described in English**:
+Every video prompt must begin with the **STYLE_ANCHOR** and then include the following **seven dimensions**, **described in WORKING_LANGUAGE**:
 
 ```
 {STYLE_ANCHOR}, {environment_atmosphere}, {character_appearance}, 
@@ -46,7 +46,7 @@ Combine the screenplay's location and mood, using highly evocative visual vocabu
 - Environmental changes must have cause and effect; the scenery must never change appearance for no reason
 
 ### Dimension 3: Characters
-**Strictly reuse the English descriptions from characters.md** — no modifications; only append the current chapter's actions.
+**Strictly reuse the character descriptions from characters.md** — no modifications; only append the current chapter's actions.
 
 ### Dimension 4: Action & Micro-expression
 This is what separates a mediocre director from a master. It must include:
@@ -87,9 +87,9 @@ Format:
 [CharacterA_EN_name] [emotion: shouts defiantly/sneers coldly/grits teeth and says] speaks in English: "[dialogue line copied verbatim from script.md]", [CharacterB_EN_name] [emotion] responds in English: "[dialogue line copied verbatim from script.md]"
 ```
 
-> ⚠️ **The spoken language is always English**: every speech tag reads `speaks in English` / `responds in English` / `shouts in English`, and the quoted line itself must be written in English. The video model speaks exactly what is inside the quotes, so a Chinese quote produces Chinese speech in the finished video. Never put non-English text inside a quote and never add parenthetical translations.
+> ⚠️ **The spoken language is DIALOGUE_LANGUAGE**: every speech tag reads `speaks in {DIALOGUE_LANGUAGE}` / `responds in {DIALOGUE_LANGUAGE}` / `shouts in {DIALOGUE_LANGUAGE}`, and the quoted line itself must be written in DIALOGUE_LANGUAGE. The video model speaks exactly what is inside the quotes, so a quote in another language produces speech in that language in the finished video. Never put text in another language inside a quote and never add parenthetical translations.
 
-Examples:
+Examples (DIALOGUE_LANGUAGE = English, the default):
 - `Han Li grits teeth and shouts defiantly in English: "Even if you join forces, I will see this through to the end!"`
 - `Ji Yin Patriarch sneers with contempt in English: "A mere Core Formation cultivator, and you dare talk so big? Laughable."`
 - `Sun Wukong laughs wildly in English: "Erlang Shen, this little trick of yours is nowhere near enough!"`
@@ -105,7 +105,7 @@ Examples:
 | 16–30 seconds | 8–10 lines | 12–16 lines | Multi-phase rhythm: dense exchanges alternating with action beats |
 
 Rules:
-- Extract lines from script.md verbatim; do not rewrite or translate them — they are already in English and must stay that way
+- Extract lines from script.md verbatim; do not rewrite or translate them — they are already in DIALOGUE_LANGUAGE and must stay that way
 - Every line must be preceded by a description of the speaker's emotion/action while speaking
 - **The gap between lines must not exceed 4 seconds** (for scenes 7 seconds or longer)
 - **Dialogue must have a sparring feel**: after A speaks, B must respond (verbally or with an action reaction); "monologue-style" lines are forbidden
@@ -272,7 +272,7 @@ The storyboard images are already saved in the `{task_folder}/storyboard/` direc
 ]
 ```
 
-> ⚠️ **Pre-submit language check**: before submitting, re-read every quoted dialogue string in prompts.json and confirm it is written in English. If even one quoted line contains CJK characters or any other non-English text, fix that prompt before submitting — whatever sits inside the quotes is what the characters will say out loud in the finished video.
+> ⚠️ **Pre-submit language check**: before submitting, re-read every quoted dialogue string in prompts.json and confirm it is written in DIALOGUE_LANGUAGE. If even one quoted line contains text in another language, fix that prompt before submitting — whatever sits inside the quotes is what the characters will say out loud in the finished video.
 
 **frames.json** — an array of TOS URL strings (in one-to-one correspondence with prompts):
 ```json
@@ -413,7 +413,7 @@ Key dialogue: "{Character A}: {line}" — "{Character B}: {line}"
 - Duration allocation: {scene_durations}
 - Duration variety: {number of distinct duration values} distinct durations
 - First/last-frame linking: ✅ (each video uses its corresponding storyboard image as the first frame)
-- All videos include audio (English dialogue + SFX + score): ✅
+- All videos include audio (dialogue in DIALOGUE_LANGUAGE + SFX + score): ✅
 - Total duration: {sum(scene_durations)} seconds = {sum(scene_durations) / 60:.1f} minutes
 
 📊 **Quality score**:
@@ -439,7 +439,7 @@ Key dialogue: "{Character A}: {line}" — "{Character B}: {line}"
 
 **Dialogue scaled by duration**: 4–6 second scene prompts carry at most 1 line of dialogue (visual impact comes first), 7–10 second scenes at least 3 lines, 11–15 second scenes at least 5 lines, 16–30 second scenes at least 8 lines — otherwise the video will have no speech.
 
-**English dialogue everywhere**: every quoted line in every prompt is written in English, and every speech tag reads `speaks in English`. A single clip whose characters speak another language ruins the merged film — verify every prompt's quoted strings before submitting.
+**One dialogue language everywhere**: every quoted line in every prompt is written in DIALOGUE_LANGUAGE, and every speech tag reads `speaks in {DIALOGUE_LANGUAGE}`. A single clip whose characters speak another language ruins the merged film — verify every prompt's quoted strings before submitting.
 
 **Consistent visual style**: every video prompt must begin with the STYLE_ANCHOR to keep the visual style unified.
 

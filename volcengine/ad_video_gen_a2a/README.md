@@ -37,6 +37,7 @@ Key features include:
 - **Candidate generation and automatic evaluation**: every shot gets several candidate images/videos which are scored on aesthetics, image quality, and consistency with the reference image
 - **URL shortening for LLM safety**: generated media URLs are mapped to compact short links so the models never corrupt them
 - **Malformed-JSON resilience**: every service applies shared [`workarounds.py`](app/market-agent/src/workarounds.py) patches that repair malformed model output (tool-call arguments, structured output) with `json-repair` instead of aborting the run
+- **English by Default**: Every agent in the pipeline (orchestrator and the four workers) is instructed to work in English by default — plans, storyboard scripts, image/video prompts, evaluation rationales, and replies. If your request is written in another language, the agents switch to that language for all of those outputs so the results are easy for you to review (see the `# Language` section in each `prompt.py`)
 
 ## Agent Capabilities
 

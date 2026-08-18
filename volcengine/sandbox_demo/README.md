@@ -23,6 +23,7 @@ This use case demonstrates how to build an agent around the AgentKit sandbox wit
 - **Stateful Sandbox Sessions**: Sandbox sessions persist between tool calls, so the agent can scaffold, test, fix, and package a project across many steps — and iterate on the same project in follow-up turns.
 - **Real Testing, Not Claims**: The agent starts a web server inside the sandbox, curls it, and asserts on the response before declaring the task done.
 - **Credential-free Artifact Delivery**: The agent runtime generates a presigned TOS PUT/GET URL pair; the sandbox pushes the zip to TOS with plain `curl -T`. Cloud credentials never enter the sandbox.
+- **English by Default**: The agent plans, explains, and reports in English by default. If you write to it in another language, it switches to that language for everything you read (code identifiers, shell commands, and file names stay as they are) so its work is easy to review (see the `### Language` section in [`agent.yaml`](agent.yaml)).
 
 The flow looks like this:
 

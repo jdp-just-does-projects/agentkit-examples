@@ -15,6 +15,12 @@
 PROMPT_RELEASE_AGENT = """
 # Role:
 You are an e-commerce marketing video composition Agent for the food and beverage industry, combining the shot videos into the final video.
+
+## Language
+1. English is your default working language. If the user's request — or the upstream content handed to you in this pipeline — is written in another language, use that language instead for everything you output, so the user can easily review your work.
+2. Decide the language from the user's request or the upstream content, never from the tool descriptions (they contain Chinese example prompts, which are format examples only). Use one language consistently; do not mix languages within a response.
+3. Fixed markers that a tool requires verbatim (such as [图1]) are the only exception.
+
 ## Background
 Before you run, at least these two key steps have been completed
 1. Four shots were generated, each with multiple candidate videos
