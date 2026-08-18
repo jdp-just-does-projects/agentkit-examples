@@ -4,7 +4,7 @@
 
 **User input**:
 ```
-Please create a comic drama video about "Sun Wukong battles Erlang Shen (孙悟空大战二郎神)", in guoman (国漫, Chinese-style animation) 3D realistic style, with Chinese dialogue
+Please create a comic drama video about "Sun Wukong battles Erlang Shen", in guoman (Chinese-style animation) 3D realistic style
 ```
 
 **Execution flow**:
@@ -27,7 +27,7 @@ python scripts/task_manager.py init "Sun Wukong vs Erlang Shen"
 - Inform the user, then continue
 
 ### 4. Script generation (with smart duration allocation)
-- DIALOGUE_LANGUAGE = Chinese (explicitly requested by the user; otherwise it would default to the language the story idea was written in) — recorded at the top of requirements.md and plot.md; every dialogue line in script.md is written in Chinese only
+- DIALOGUE_LANGUAGE = English (always — it is fixed for every production) — recorded at the top of requirements.md and plot.md; every dialogue line in script.md is written in English only, even though the story is drawn from Chinese mythology
 - web_search: "Sun Wukong battles Erlang Shen original storyline", "Erlang Shen Yang Jian abilities and magic weapons", "Journey to the West classic quotes"
 - Write requirements.md, plot.md, script.md
 - **Duration allocation** (4s ~ 30s dynamic range):
@@ -64,9 +64,9 @@ Chinese fantasy 3D animation, cinematic quality, on a crumbling mountain peak un
 
 ### 7. Storyboard videos (smart-duration submission)
 
-Example video prompt (Scene 4, 14-second climactic duel; DIALOGUE_LANGUAGE = Chinese, so every quoted line is written in Chinese and the characters speak Chinese on screen — if DIALOGUE_LANGUAGE were English, every quoted line and every `speaks in ...` tag would be English instead):
+Example video prompt (Scene 4, 14-second climactic duel; every quoted line is English and every speech tag reads `in English`, so the characters speak English on screen):
 ```
-Chinese fantasy 3D animation, cinematic quality, ultra-high detail, dramatic color grading, on a crumbling mountain peak under blood-red sky dark clouds swirling lightning cracking, Sun Wukong wild golden fur golden eyes wearing golden chainmail armor with tiger-skin kilt, leaps into the air spinning Ruyi Jingu Bang overhead then slams it down with earth-shattering force, face contorted with wild battle joy eyes blazing with fighting spirit teeth bared in a fierce grin, Sun Wukong laughs wildly in Chinese: "二郎神，你这点本事还不够看！", Yang Jian grits teeth and shouts defiantly in Chinese: "泼猴休狂！看我三尖两刃刀！", Sun Wukong roars in Chinese: "哈哈，来得好！", Yang Jian growls in Chinese: "今日定要擒你！", Sun Wukong shouts in Chinese: "做梦！", dynamic tracking shot racing alongside the action camera tilting 45 degrees then ultra-slow motion 0.2x on moment of impact, epic battle orchestra with war drums and brass fanfare sword clashing metal SFX shockwave boom spiritual energy resonance hum
+Chinese fantasy 3D animation, cinematic quality, ultra-high detail, dramatic color grading, on a crumbling mountain peak under blood-red sky dark clouds swirling lightning cracking, Sun Wukong wild golden fur golden eyes wearing golden chainmail armor with tiger-skin kilt, leaps into the air spinning Ruyi Jingu Bang overhead then slams it down with earth-shattering force, face contorted with wild battle joy eyes blazing with fighting spirit teeth bared in a fierce grin, Sun Wukong laughs wildly in English: "Erlang Shen, this little trick of yours is nowhere near enough!", Yang Jian grits teeth and shouts defiantly in English: "Enough of your swagger, monkey! Taste my three-pointed blade!", Sun Wukong roars in English: "Ha! Now that is more like it!", Yang Jian growls in English: "Today I take you in!", Sun Wukong shouts in English: "Keep dreaming!", dynamic tracking shot racing alongside the action camera tilting 45 degrees then ultra-slow motion 0.2x on moment of impact, epic battle orchestra with war drums and brass fanfare sword clashing metal SFX shockwave boom spiritual energy resonance hum
 ```
 
 Complete example JSON files:
@@ -77,7 +77,7 @@ Complete example JSON files:
   "Chinese fantasy 3D animation, cinematic quality, on flower fruit mountain peak under twilight sky..., Sun Wukong wild golden fur..., stands with arms crossed surveying the battlefield..., sweeping cinematic orchestral score...",
   "Chinese fantasy 3D animation, cinematic quality, on a vast battlefield clouds swirling..., Sun Wukong leaps forward with Ruyi Jingu Bang..., Yang Jian raises three-pointed blade to block..., epic battle orchestra...",
   "Chinese fantasy 3D animation, cinematic quality, in a whirlwind of golden and silver energy..., Sun Wukong transforms rapidly between forms..., dynamic tracking shot..., high-pitched power surge SFX...",
-  "Chinese fantasy 3D animation, cinematic quality, on a crumbling mountain peak under blood-red sky..., Sun Wukong leaps into the air spinning Ruyi Jingu Bang..., Sun Wukong laughs wildly in Chinese: '二郎神，你这点本事还不够看！'...",
+  "Chinese fantasy 3D animation, cinematic quality, on a crumbling mountain peak under blood-red sky..., Sun Wukong leaps into the air spinning Ruyi Jingu Bang..., Sun Wukong laughs wildly in English: 'Erlang Shen, this little trick of yours is nowhere near enough!'...",
   "Chinese fantasy 3D animation, cinematic quality, amid settling dust and fading energy..., Sun Wukong and Yang Jian face each other..., slow pull-back from close-up to wide shot..., triumphant fanfare gradually transitioning to peaceful melody...",
   "Chinese fantasy 3D animation, cinematic quality, on a restored mountain peak under golden sunset..., Sun Wukong turns and walks away..., static locked-off camera holds still for 6 seconds gentle fade..., solo flute melody fading to silence..."
 ]
@@ -130,7 +130,7 @@ python scripts/tos_upload.py "{COMIC_DRAMA_OUTPUT_DIR}/task_.../final/Sun_Wukong
 
 **User input**:
 ```
-Han Li battles the Patriarch of Extreme Yin, from A Record of a Mortal's Journey to Immortality (凡人修仙传韩立大战极阴老祖), video duration 2 minutes
+Han Li battles the Patriarch of Extreme Yin, from A Record of a Mortal's Journey to Immortality, video duration 2 minutes
 ```
 
 **Setup before launch**:
@@ -151,7 +151,7 @@ export VIDEO_DURATION_MINUTES=2
 
 **User input**:
 ```
-Workplace drama: an intern's underdog rise to CEO of a tech giant (职场风云：实习生逆袭大厂CEO), in Japanese 2D anime style
+Workplace drama: an intern's underdog rise to CEO of a tech giant, in Japanese 2D anime style
 ```
 
 **Visual style adjustments**:
@@ -166,16 +166,18 @@ Workplace drama: an intern's underdog rise to CEO of a tech giant (职场风云�
 
 | Genre             | Example prompt                                                                          |
 |-------------------|-----------------------------------------------------------------------------------------|
-| Chinese idioms    | "Hou Yi shoots down the suns, Chang'e flies to the moon, Wu Gang fells the tree (后羿射日嫦娥奔月吴刚伐木)" |
-| Classic tales     | "Yu Gong moves the mountains and Jingwei fills the sea, picture-book story (愚公移山与精卫填海绘本故事)" |
-| Wuxia novels      | "Legend of the Condor Heroes: Guo Jing battles Ouyang Feng, live-action style (射雕英雄传，郭靖大战欧阳锋，真人版)" |
-| Xianxia fantasy   | "Han Li forms his Nascent Soul, from A Record of a Mortal's Journey to Immortality (凡人修仙传韩立结婴)" |
-| Cyberpunk         | "A cyberpunk wasteland hunter chases down a mechanical dragon (赛博朋克废土猎人追杀机械龙)" |
-| Historical        | "Jing Ke's last night before assassinating the King of Qin (荆轲刺秦王最后一夜)"          |
-| Fantasy adventure | "A small-town girl stumbles into the elven kingdom (小镇女孩误入精灵王国)"                |
-| Sci-fi            | "Interstellar agents save the Earth (星际特工拯救地球)"                                   |
-| Urban             | "Workplace drama: an intern's underdog rise to CEO of a tech giant (职场风云实习生逆袭大厂CEO)" |
-| Children's        | "A little fox searches for star fragments (小狐狸寻找星星碎片)"                           |
+| Chinese idioms    | "Hou Yi shoots down the suns, Chang'e flies to the moon, Wu Gang fells the tree"          |
+| Classic tales     | "Yu Gong moves the mountains and Jingwei fills the sea, picture-book story"               |
+| Wuxia novels      | "Legend of the Condor Heroes: Guo Jing battles Ouyang Feng, live-action style"            |
+| Xianxia fantasy   | "Han Li forms his Nascent Soul, from A Record of a Mortal's Journey to Immortality"       |
+| Cyberpunk         | "A cyberpunk wasteland hunter chases down a mechanical dragon"                            |
+| Historical        | "Jing Ke's last night before assassinating the King of Qin"                               |
+| Fantasy adventure | "A small-town girl stumbles into the elven kingdom"                                       |
+| Sci-fi            | "Interstellar agents save the Earth"                                                      |
+| Urban             | "Workplace drama: an intern's underdog rise to CEO of a tech giant"                       |
+| Children's        | "A little fox searches for star fragments"                                                |
+
+> Every one of these produces an **English** comic drama: English documents, English prompts, and characters speaking English on screen — whatever the story's origin.
 
 ---
 

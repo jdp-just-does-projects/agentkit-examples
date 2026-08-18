@@ -60,6 +60,14 @@ for _key, _value in {
     "MODEL_EVALUATE_NAME": "dola-seed-2-1-turbo-260628",
     "MODEL_IMAGE_NAME": "dola-seedream-5-0-pro-260628",
     "MODEL_VIDEO_NAME": "dreamina-seedance-2-5-260628",  # Seedance 2.5
+    # Endpoints too: veadk resolved its BytePlus-vs-mainland default off
+    # CLOUD_PROVIDER when it was first imported, which under `veadk web`
+    # happens before consts.py runs -- leaving a run without a `config.yaml`
+    # pointed at ark.cn-beijing.volces.com, where a BytePlus ARK key fails
+    # with `401 AuthenticationError: The API key doesn't exist`.
+    "MODEL_AGENT_API_BASE": "https://ark.ap-southeast.bytepluses.com/api/v3",
+    "MODEL_IMAGE_API_BASE": "https://ark.ap-southeast.bytepluses.com/api/v3",
+    "MODEL_VIDEO_API_BASE": "https://ark.ap-southeast.bytepluses.com/api/v3",
 }.items():
     os.environ.setdefault(_key, _value)
 

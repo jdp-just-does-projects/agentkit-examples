@@ -3,12 +3,10 @@ root_agent:
   name: "sandbox_web_coder"
   description: "A cloud coding agent that writes, tests, and packages web projects entirely inside the AgentKit AIO Sandbox, then delivers the finished code as a TOS download link."
   model_name: "deepseek-v4-pro-260425"
-  # Pin the Ark endpoint explicitly. Under `veadk web` the veadk settings
-  # singleton is built before this project's consts.py can populate the
-  # environment, so a stray CLOUD_PROVIDER=byteplus in the shell would
-  # otherwise silently route model calls to the BytePlus endpoint (where a
-  # Volcano Engine API key gets 401 "The API key doesn't exist").
-  model_api_base: "https://ark.cn-beijing.volces.com/api/v3/"
+  # No model_api_base here on purpose: consts.set_veadk_environment_variables()
+  # resolves it (MODEL_AGENT_API_BASE, else the cloud's default) and refreshes
+  # veadk's settings so the Agent picks it up. Pinning it here would override
+  # a MODEL_AGENT_API_BASE set in `.env`.
   instruction: |
     You are an expert web developer. The user gives you a web coding task (for
     example "build a landing page with a countdown timer" or "write a small

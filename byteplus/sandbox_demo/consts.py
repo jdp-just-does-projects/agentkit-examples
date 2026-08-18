@@ -13,6 +13,7 @@
 # limitations under the License.
 import logging
 import os
+import sys
 from pathlib import Path
 
 from dotenv import dotenv_values
@@ -66,6 +67,33 @@ def load_env_file() -> list[Path]:
     return loaded
 
 
+def refresh_veadk_model_settings() -> None:
+    """Rebuild veadk's model settings from the current environment.
+
+    veadk snapshots its model configuration into the `veadk.config.settings`
+    singleton the first time `veadk.config` is imported, and resolves the
+    ModelArk endpoint (BytePlus vs. Volcano Engine, off CLOUD_PROVIDER) at that
+    same moment. `veadk web` imports veadk *before* it loads this agent, so
+    that snapshot predates everything set above: `Agent.model_api_base`
+    defaults to `settings.model.api_base` and would silently keep veadk's
+    built-in mainland endpoint, ignoring MODEL_AGENT_API_BASE. A BytePlus ARK
+    key sent there fails with `401 AuthenticationError: The API key doesn't
+    exist`.
+
+    Rebuilding `settings.model` re-reads every MODEL_AGENT_* variable, so the
+    environment wins as documented. This is a no-op when veadk has not been
+    imported yet: it then builds its settings from the environment anyway.
+    """
+    veadk_config = sys.modules.get("veadk.config")
+    if veadk_config is None:
+        return
+    settings = veadk_config.settings
+    settings.model = type(settings.model)()
+    logger.info(
+        f"[consts] Rebuilt veadk model settings, api_base={settings.model.api_base}"
+    )
+
+
 def set_veadk_environment_variables():
     # veadk keys its BytePlus behavior off CLOUD_PROVIDER, not the
     # AGENTKIT_CLOUD_PROVIDER variable the agentkit SDK reads: with
@@ -87,3 +115,7 @@ def set_veadk_environment_variables():
     os.environ["MODEL_AGENT_API_BASE"] = os.getenv(
         "MODEL_AGENT_API_BASE", DEFAULT_MODEL_AGENT_API_BASE
     )
+
+    # The variables above only reach the agent if veadk re-reads them; see
+    # refresh_veadk_model_settings().
+    refresh_veadk_model_settings()

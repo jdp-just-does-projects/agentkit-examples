@@ -20,6 +20,8 @@ _EVAL_MODEL = os.environ.get("EVAL_MODEL_NAME", "deepseek-v4-pro-260425")
 
 _RUBRIC = """You are a professional comic drama quality reviewer. Please score the following comic drama video on 5 dimensions (0-10 points each) and give overall suggestions.
 
+Write your entire response in English, whatever language the material below is in.
+
 Scoring dimensions:
 1. Plot coherence (are transitions between scenes smooth, is there any sense of disjointedness)
 2. Dialogue richness (are there enough character lines, is the tone varied, is there a sense of conflict)

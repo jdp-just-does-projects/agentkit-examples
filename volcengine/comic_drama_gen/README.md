@@ -15,6 +15,7 @@ An AI-powered comic drama production Agent built on Volcano Engine AgentKit. Sim
 - **Professional Camera Language**: Built-in director-level camera strategies (speed ramps, 360° orbits, tracking shots, etc.)
 - **Content Safety Pre-screening**: Automatic risk assessment with proactive handling of sensitive content
 - **Style Consistency**: STYLE_ANCHOR maintained throughout the entire workflow with strict character prompt reuse
+- **English Throughout**: Every output is in English — the agent's replies, the generated documents, the image and video prompts, and the dialogue the characters speak on screen
 - **Output Verification**: Automatic file integrity checks + AI quality scoring after each step
 - **Multi-Genre Support**: Mythology, martial arts, cultivation, urban, sci-fi, children's stories, and 10+ more genres
 - **MCP Tool Integration**: Video editing capability via `@pickstar-2002/video-clip-mcp`

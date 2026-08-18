@@ -59,6 +59,13 @@ for _key, _value in {
     "MODEL_EVALUATE_NAME": "doubao-seed-2-1-turbo-260628",
     "MODEL_IMAGE_NAME": "doubao-seedream-5-0-pro-260628",
     "MODEL_VIDEO_NAME": "doubao-seedance-2-5-260628",  # Seedance 2.5
+    # Endpoints too: veadk resolved its endpoint default when it was first
+    # imported, which under `veadk web` happens before consts.py runs, so a
+    # run without a `config.yaml` cannot rely on that default having seen this
+    # project's environment.
+    "MODEL_AGENT_API_BASE": "https://ark.cn-beijing.volces.com/api/v3/",
+    "MODEL_IMAGE_API_BASE": "https://ark.cn-beijing.volces.com/api/v3/",
+    "MODEL_VIDEO_API_BASE": "https://ark.cn-beijing.volces.com/api/v3/",
 }.items():
     os.environ.setdefault(_key, _value)
 
