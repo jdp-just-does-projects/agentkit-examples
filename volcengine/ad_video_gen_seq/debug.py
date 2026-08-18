@@ -17,6 +17,11 @@ import os
 os.environ["LOGGING_LEVEL"] = "ERROR"
 import time
 import asyncio
+# Load `.env` before any veadk import (veadk snapshots the environment at first import).
+from consts import load_env_file
+
+load_env_file()
+
 from google.adk.sessions import Session
 from google.adk.agents import RunConfig
 from google.adk.agents.run_config import StreamingMode

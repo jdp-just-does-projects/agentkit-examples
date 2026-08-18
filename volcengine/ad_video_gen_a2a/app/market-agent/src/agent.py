@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Load `.env` (service dir, project root, then CWD; its values override the
+# shell) before anything imports veadk (veadk snapshots the environment at
+# first import; the workarounds module imports veadk).
+from consts import load_env_file
+
+load_env_file()
+
 # Apply shared runtime patches (JSON repair for malformed tool calls, etc.)
 # before any agent model is constructed.
 import workarounds  # noqa: F401

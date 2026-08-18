@@ -11,6 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Optional `.env` loading for the ad_video_gen_seq sample.
+
+Import and call `load_env_file()` before any veadk / agentkit import: veadk
+snapshots the environment (including `config.yaml`) when first imported.
+"""
+
 import logging
 import os
 from pathlib import Path
@@ -18,16 +24,6 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_MODEL_AGENT_NAME = "deepseek-v4-pro-260425"
-DEFAULT_MODEL_AGENT_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
-
-DEFAULT_VIDEO_MODEL_NAME = "doubao-seedance-2-5-260628"
-DEFAULT_VIDEO_MODEL_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
-
-DEFAULT_IMAGE_GENERATE_MODEL_NAME = "doubao-seedream-5-0-pro-260628"
-DEFAULT_IMAGE_GENERATE_MODEL_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
-
 
 # Directories searched for a `.env` file, highest priority first. The current
 # working directory is always searched last.
@@ -66,28 +62,3 @@ def load_env_file() -> list[Path]:
         logger.info(f"[consts] Loaded environment variables from {env_file}")
     return loaded
 
-
-def set_veadk_environment_variables():
-    # Load `.env` first (project dir, then CWD); its values override the shell.
-    load_env_file()
-
-    os.environ["MODEL_AGENT_NAME"] = os.getenv(
-        "MODEL_AGENT_NAME", DEFAULT_MODEL_AGENT_NAME
-    )
-    os.environ["MODEL_AGENT_API_BASE"] = os.getenv(
-        "MODEL_AGENT_API_BASE", DEFAULT_MODEL_AGENT_API_BASE
-    )
-
-    os.environ["MODEL_VIDEO_NAME"] = os.getenv(
-        "MODEL_VIDEO_NAME", DEFAULT_VIDEO_MODEL_NAME
-    )
-    os.environ["MODEL_VIDEO_API_BASE"] = os.getenv(
-        "MODEL_VIDEO_API_BASE", DEFAULT_VIDEO_MODEL_API_BASE
-    )
-
-    os.environ["MODEL_IMAGE_NAME"] = os.getenv(
-        "MODEL_IMAGE_NAME", DEFAULT_IMAGE_GENERATE_MODEL_NAME
-    )
-    os.environ["MODEL_IMAGE_API_BASE"] = os.getenv(
-        "MODEL_IMAGE_API_BASE", DEFAULT_IMAGE_GENERATE_MODEL_API_BASE
-    )

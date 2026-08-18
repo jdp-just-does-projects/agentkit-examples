@@ -29,6 +29,12 @@ _AGENT_DIR = str(Path(__file__).resolve().parent)
 if _AGENT_DIR not in sys.path:
     sys.path.insert(0, _AGENT_DIR)
 
+# Load `.env` (project dir, then CWD; its values override the shell) before any
+# veadk import: veadk snapshots the environment at first import.
+from consts import load_env_file
+
+load_env_file()
+
 from google.adk.models.lite_llm import LiteLlm
 from veadk.models.ark_llm import ArkLlm
 

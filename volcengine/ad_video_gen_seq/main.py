@@ -14,6 +14,12 @@
 
 import os
 
+# Load `.env` (project dir, then CWD; its values override the shell) before any
+# veadk / agentkit import: veadk snapshots the environment at first import.
+from consts import load_env_file
+
+load_env_file()
+
 from agentkit.apps import AgentkitAgentServerApp
 from veadk.memory import ShortTermMemory
 

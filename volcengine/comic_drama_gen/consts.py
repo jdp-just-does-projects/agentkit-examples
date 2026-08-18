@@ -15,6 +15,8 @@ import logging
 import os
 from pathlib import Path
 
+from dotenv import dotenv_values
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_REGION = "cn-beijing"
@@ -29,34 +31,47 @@ DEFAULT_IMAGE_GENERATE_MODEL_NAME = "doubao-seedream-5-0-pro-260628"
 DEFAULT_IMAGE_GENERATE_MODEL_API_BASE = "https://ark.cn-beijing.volces.com/api/v3/"
 
 
-def _load_dotenv():
-    """Load the .env file in the current directory (prefers python-dotenv; falls back to manual parsing if not installed)."""
-    env_file = Path(__file__).resolve().parent / ".env"
-    if not env_file.exists():
-        return
-    try:
-        from dotenv import load_dotenv
+# Directories searched for a `.env` file, highest priority first. The current
+# working directory is always searched last.
+_ENV_FILE_DIRS = [Path(__file__).resolve().parent]
 
-        load_dotenv(dotenv_path=env_file, override=False)
-        logger.info(f"[consts] Loaded .env via python-dotenv: {env_file}")
-    except ImportError:
-        # python-dotenv is not installed; parse manually
-        with open(env_file, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                key = key.strip().lstrip("export ").strip()
-                value = value.strip().strip('"').strip("'")
-                if key and key not in os.environ:
-                    os.environ[key] = value
-        logger.info(f"[consts] Loaded .env manually: {env_file}")
+
+def load_env_file() -> list[Path]:
+    """Load environment variables from `.env` files (optional).
+
+    Precedence: values in a `.env` file win over variables already exported in
+    the shell; anything not present in any `.env` file falls back to the shell
+    environment. Files are searched in `_ENV_FILE_DIRS` and then the current
+    working directory; when several exist, the earlier (project-side) file wins
+    for keys they share. Missing files are ignored.
+
+    Returns the list of `.env` files that were loaded.
+    """
+    loaded: list[Path] = []
+    seen: set[Path] = set()
+    for directory in [*_ENV_FILE_DIRS, Path.cwd()]:
+        env_file = (directory / ".env").resolve()
+        if env_file in seen or not env_file.is_file():
+            continue
+        seen.add(env_file)
+        loaded.append(env_file)
+
+    merged: dict[str, str] = {}
+    # Apply lowest-priority (CWD) first so higher-priority files override it.
+    for env_file in reversed(loaded):
+        merged.update(
+            {k: v for k, v in dotenv_values(env_file).items() if v is not None}
+        )
+    os.environ.update(merged)
+
+    for env_file in loaded:
+        logger.info(f"[consts] Loaded environment variables from {env_file}")
+    return loaded
 
 
 def set_veadk_environment_variables():
-    # Load environment variables from the .env file first (without overriding existing ones)
-    _load_dotenv()
+    # Load `.env` first (project dir, then CWD); its values override the shell.
+    load_env_file()
 
     # The skill scripts read ARK_API_KEY while veadk reads MODEL_AGENT_API_KEY;
     # mirror whichever one is set so a single key works for both.

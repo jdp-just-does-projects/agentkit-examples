@@ -27,6 +27,12 @@ for _path in (str(_AGENT_DIR), str(_AGENT_DIR.parent)):
     if _path not in sys.path:
         sys.path.insert(0, _path)
 
+# Load `.env` and populate model defaults before any veadk (or agentkit, which
+# may pull in veadk) import: veadk snapshots the environment at first import.
+from consts import set_veadk_environment_variables
+
+set_veadk_environment_variables()
+
 from agentkit.apps import AgentkitAgentServerApp
 from google.adk.models.lite_llm import LiteLlm
 from google.genai import types
@@ -36,7 +42,6 @@ from veadk.models.ark_llm import ArkLlm
 from veadk.tools.builtin_tools.image_generate import image_generate
 from veadk.tools.builtin_tools.video_generate import video_generate
 
-from consts import set_veadk_environment_variables
 from prompt import PROMPT_AD_VIDEO_AGENT
 
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
@@ -91,9 +96,6 @@ def _parse_tool_call_arguments_with_repair(arguments):
 _lite_llm._parse_tool_call_arguments = _parse_tool_call_arguments_with_repair
 
 #### END OF WORKAROUND
-
-# env
-set_veadk_environment_variables()
 
 root_agent = Agent(
     name="root_agent",
