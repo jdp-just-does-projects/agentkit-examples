@@ -15,8 +15,46 @@
 import os
 import hashlib
 import logging
+from pathlib import Path
+
+from dotenv import dotenv_values
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+
+def load_env_file() -> list[Path]:
+    """Load environment variables from `.env` files (optional).
+
+    Precedence: values in a `.env` file win over variables already exported in
+    the shell; anything not present in any `.env` file falls back to the shell
+    environment. Searched, highest priority first: this directory, the
+    ad_video_gen_a2a project root, then the current working directory. Missing
+    files are ignored.
+    """
+    here = Path(__file__).resolve().parent
+    loaded: list[Path] = []
+    seen: set[Path] = set()
+    for directory in [here, here.parents[1], Path.cwd()]:
+        env_file = (directory / ".env").resolve()
+        if env_file in seen or not env_file.is_file():
+            continue
+        seen.add(env_file)
+        loaded.append(env_file)
+
+    merged: dict[str, str] = {}
+    for env_file in reversed(loaded):  # lowest priority first
+        merged.update(
+            {k: v for k, v in dotenv_values(env_file).items() if v is not None}
+        )
+    os.environ.update(merged)
+    return loaded
+
+
+# Load `.env` before any os.getenv() below; its values override the shell.
+for _env_file in load_env_file():
+    logging.getLogger("short_link").info(
+        f"Loaded environment variables from {_env_file}"
+    )
 
 # Mode configuration
 SHORT_LINK_MODE = os.getenv(

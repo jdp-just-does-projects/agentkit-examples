@@ -127,7 +127,7 @@ Two methods are supported:
 
 #### Method 1: `.env` File (Recommended)
 
-Create a `.env` file in the `comic_drama_gen/` directory:
+Copy [`.env.example`](.env.example) to `.env` in the `comic_drama_gen/` directory (or in the directory you launch from) and fill in the values:
 
 ```bash
 BYTEPLUS_ACCESS_KEY=your_ak
@@ -143,7 +143,7 @@ VIDEO_DURATION_MINUTES=0.5
 DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 ```
 
-> The `.env` file is automatically loaded at startup (via `python-dotenv` or the built-in parser) and will not override existing exported environment variables.
+> The `.env` file is loaded automatically at startup (via `python-dotenv`). Values in `.env` take precedence over variables exported in the shell; anything missing from `.env` falls back to the shell environment. The file is optional — if it does not exist, only the shell environment is used. `consts.py` looks for `.env` in the project directory first and then in the current working directory (the project-directory file wins for keys present in both).
 
 #### Method 2: Direct Export
 
@@ -242,7 +242,8 @@ comic_drama_gen/
 ├── agent.py                # Agent entry (MCP tool registration, skill loading, session storage)
 ├── agent.yaml              # Agent configuration (model, system instructions)
 ├── consts.py               # Default constants + .env auto-loading
-├── .env                    # Environment variable config file (create manually)
+├── .env.example            # Environment variable template (copy to .env)
+├── .env                    # Environment variable config file (create from .env.example)
 ├── pyproject.toml          # Python project configuration
 ├── requirements.txt        # Dependency list
 ├── scripts/                # Helper scripts directory
@@ -423,9 +424,9 @@ uv run agentkit destroy
 - Use the `COMIC_DRAMA_OUTPUT_DIR` environment variable to separate test and production outputs
 
 **`.env` file not taking effect:**
-- Confirm the `.env` file is located in the `comic_drama_gen/` directory
-- `.env` will not override variables already set via `export`
-- Install `python-dotenv` for better compatibility, otherwise the built-in parser is used
+- Confirm the `.env` file is located in the `comic_drama_gen/` directory or in the directory you launch from
+- `.env` values override variables set via `export`; if a value looks wrong, check for a stale entry in `.env`
+- `python-dotenv` is a pinned dependency; re-run `uv sync` / `pip install -r requirements.txt` if the import fails
 
 **`npx` command not found:**
 - Install Node.js 18+ and npm
