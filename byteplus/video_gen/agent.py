@@ -45,6 +45,8 @@ from veadk.agent_builder import AgentBuilder
 from veadk.models.ark_llm import ArkLlm
 from veadk.memory.short_term_memory import ShortTermMemory
 
+import pipeline_guard  # noqa: E402
+
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -154,6 +156,15 @@ yaml_path = str(_AGENT_DIR / "agent.yaml")
 
 agent = agent_builder.build(path=yaml_path)
 agent.tools.append(mcpTool)
+
+# Keep the whole storybook pipeline (illustrations -> videos -> merge -> TOS
+# upload) running in a single turn. google-adk ends the invocation as soon as
+# the model replies without a tool call, and the model tends to present the
+# storyboard images or the clips as a stand-alone reply ("now merging...")
+# without issuing the next tool call — leaving the user to type "continue".
+# The guard injects a `continue_pipeline` tool call whenever the turn would
+# end before the final TOS upload has happened. See pipeline_guard.py.
+pipeline_guard.install(agent, required_tools={"upload_file_to_tos"})
 
 runner = Runner(agent=agent, app_name=app_name)
 # support veadk web

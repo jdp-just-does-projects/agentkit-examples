@@ -2,7 +2,7 @@
 
 **IMPORTANT**: This demo was tested with Python 3.12, but other demos here require other versions of Python. We recommend installing and managing multiple versions of Python with [mise](https://mise.jdx.dev/getting-started.html). 
 
-This is a "Fable Storybook Video Generation" Agent based on Volcano Engine AgentKit.
+This is a "Fable Storybook Video Generation" Agent based on Volcano Engine / BytePlus AgentKit.
 
 When given a user-input fable storyline, it will: 
 
@@ -55,6 +55,7 @@ Key features include:
 | Component | Description |
 | --- | --- |
 | **Agent Service** | [`agent.py`](agent.py) - Main application, includes MCP tool registration |
+| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - keeps the multi-step run going in one turn: if the model ends a turn with a text-only progress note before the merged video has been uploaded to TOS, the guard injects a `continue_pipeline` tool call so the user never has to type "continue" |
 | **Agent Configuration** | [`agent.yaml`](agent.yaml) - Model settings, system instructions, and tool list |
 | **Custom Tools** | [`tool/`](tool/) - File download and TOS upload utility tools |
 | **MCP Integration** | `@pickstar-2002/video-clip-mcp` - Local video stitching service |
@@ -174,7 +175,13 @@ uv pip install agentkit-sdk-python
 
 **Step 1:** Make sure you are in the current directory (`video_gen`), then configure AgentKit:
 
-**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment
+**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first:
+
+```bash
+set -a && source ./.env && set +a
+```
+
+This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
 
 ```bash
 uv run agentkit config \
@@ -184,8 +191,11 @@ uv run agentkit config \
 --runtime_envs MODEL_AGENT_API_KEY=$MODEL_AGENT_API_KEY \
 --runtime_envs AGENTKIT_CLOUD_PROVIDER=byteplus \
 --runtime_envs CLOUD_PROVIDER=byteplus \
+--cloud_provider byteplus \
 --launch_type cloud
 ```
+
+**Note**: The `--cloud_provider byteplus` flag is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
 
 **Step 2:** Modify the `agentkit.yaml` deployment configuration
 
