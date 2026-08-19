@@ -41,6 +41,24 @@ Rules:
 
 ---
 
+## ⛔ Never Pause Between Steps (Run the Pipeline End to End)
+
+**The pipeline is fully automatic: once production starts, you drive it from Step 1 through Step 8 in one continuous run. The user must never have to type "continue" to get the next step started.**
+
+The runtime ends your turn the moment you send a reply that contains no tool call. So a reply like "✅ Step 5 complete … now moving to Step 6!" that is *not* accompanied by a tool call silently stops the whole production. Follow these rules:
+
+- **Presenting a step's outputs and starting the next step happen in the same response.** Show the step's key outputs (rule 17), then — in that very same response — issue the first tool call of the next step (for example `bash_tool` running the next script, or `write_file_tool` preparing the next JSON file). Announcing "moving to Step N" is not the same as starting Step N.
+- **There are only three legitimate reasons to end your turn without a tool call:**
+  1. Step 8 is finished and you are delivering the final report (which must end with the line `🏁 Pipeline complete`).
+  2. You are genuinely blocked on a decision that only the user can make (content-safety confirmation for a high-risk idea, or the resume-or-restart choice of Step 0). Ask the question clearly and stop.
+  3. An unrecoverable error after your retries (for example a missing artifact you cannot repair) — say exactly what failed and what you need from the user.
+- Progress commentary between steps is welcome, but never as a stand-alone reply — attach it to the next tool call.
+- Never wait for the user to "confirm" images, videos, or documents before moving on: previews are shown for the user's information, not as an approval gate.
+- Long-running scripts must be given enough time via the `timeout` argument of `bash_tool` (default is only 600 s): use `timeout: 1900` for `batch_video.py poll` (it can legitimately run for 30 minutes), `timeout: 900` for `batch_image_generate.py`, `timeout: 300` for `image_generate.py`, and `timeout: 600` for `video_merge.py` / `tos_upload.py` of the final video. A tool timeout means the *tool call* was cut off, not that the job failed — check the artifacts, then resume/re-poll instead of starting the step over.
+- If a runtime message tells you the turn ended prematurely (a `continue_pipeline` result), do not re-summarize — call the next tool immediately.
+
+---
+
 ## ⚠️ Content Safety Review Reminder
 
 Before production begins, **you must first perform a content safety pre-review of the user's story idea**.
@@ -142,7 +160,7 @@ python scripts/batch_video.py submit \
   --first-frames-file frames.json \
   --durations-file durations.json
 
-# Poll tasks
+# Poll tasks (blocks up to 30 minutes — call it with bash_tool timeout: 1900)
 python scripts/batch_video.py poll --task-ids-file task_ids.json --interval 30
 ```
 
@@ -298,8 +316,10 @@ Step 6: Storyboard video → python scripts/batch_video.py submit/poll + indepen
 Step 7: Video synthesis → python scripts/video_merge.py + tos_upload.py (see references/video-synthesizer.md)
 Step 8: Artifact verification and quality scoring → check artifact completeness item by item + generate scoring report
   ↓
-Complete comic drama video + TOS signed link + scoring report
+Complete comic drama video + TOS signed link + scoring report + final line `🏁 Pipeline complete`
 ```
+
+> ⛔ Steps 1–8 run back to back in a single continuous turn. Never end a reply between steps without a tool call (see "Never Pause Between Steps").
 
 ---
 
@@ -335,6 +355,7 @@ Each storyboard scene is assigned its own duration based on **the needs of the s
 - Tense chases/flashbacks may use 4~6 second quick cuts
 - Opening and closing chapters typically use 7~10 seconds
 - **Adjacent scenes should vary in duration** — avoid multiple consecutive scenes of identical length, which makes the pacing monotonous
+- **Prefer longer scenes over more scenes**: the storyboard clips are stitched together in Step 7, so when the target total duration is long, reach it by making each scene longer (Seedance 2.5 supports up to 30 seconds per clip) rather than by adding more scenes. Treat `recommended_scene_count` as an upper reference, not a target — lean toward the lower end of `scene_count_range` and let scene durations grow (more 11~15 s and 16~30 s scenes) before you add another scene. A few longer, richer scenes cut together better than a long chain of short clips.
 
 Continue after confirming the configuration with the user.
 
@@ -375,7 +396,7 @@ Core workflow:
 2. **In-depth research via `python scripts/web_search.py`** (must be done before writing the screenplay)
 3. Save the requirements document `requirements.md`
 4. Write a chapter-based plot outline `plot.md` (including a global style anchor declaration + DIALOGUE_LANGUAGE declaration + emotional arc chart)
-5. **Dynamically allocate a duration for each chapter** (4 seconds ~ 30 seconds, based on story pacing)
+5. **Dynamically allocate a duration for each chapter** (4 seconds ~ 30 seconds, based on story pacing). **Prefer fewer, longer chapters over more, shorter ones**: to reach a longer total duration, lengthen the chapters (up to 30 seconds each) before adding chapters
 6. Write the complete dialogue screenplay `script.md` in the working language (each chapter annotated with its duration; the second-by-second script laid out according to actual duration; **all dialogue in DIALOGUE_LANGUAGE**)
 7. Output the `scene_durations` list (for use in Step 6)
 
@@ -783,7 +804,11 @@ Audio-visual sync:   X/10
 Overall score:       X.X/10
 
 Improvement suggestions: [specific suggestions]
+
+🏁 Pipeline complete
 ```
+
+> The final line `🏁 Pipeline complete` must always be the last line of your final message — it is the signal (to the user and to the runtime) that the production is finished. Do not emit it before Step 8 is done.
 
 > **If any artifact is missing or empty, the entire task is judged a failure** — the specific missing items must be reported and their repair coordinated.
 
@@ -799,7 +824,7 @@ Improvement suggestions: [specific suggestions]
 6. **One language, end to end**: every message you send the user, every document you write, every image and video prompt, and every spoken line in the finished video is in the working language — English by default, or the user's language if they write in another one (never decided by the origin of the story). Every quoted dialogue line in video prompts is in DIALOGUE_LANGUAGE and every speech tag reads `speaks in {DIALOGUE_LANGUAGE}`; before submitting video tasks, re-read `prompts.json` and confirm no quoted string contains text in any other language
 7. **Plot coherence**: scene bridging ensures natural transitions between adjacent chapters, and the emotional arc has a beginning, development, climax, and resolution
 8. **Dialogue density**: 0-2 lines for 4~6 second scenes, at least 3 lines for 7~10 second scenes, at least 6 lines for 11~15 second scenes, at least 10 lines for 16~30 second scenes; no more than 4 seconds between lines, with a sense of back-and-forth
-9. **Smart duration**: each chapter's duration is dynamically allocated from 4~30 seconds based on story pacing; duration diversity takes priority; total duration stays within the target range
+9. **Smart duration**: each chapter's duration is dynamically allocated from 4~30 seconds based on story pacing; duration diversity takes priority; total duration stays within the target range; **when the target is long, prefer longer scenes (up to 30 seconds each) over a larger number of short scenes** — the clips are stitched together, and fewer, longer scenes cut together better
 10. **Camera diversity**: adjacent scenes must not repeat camera techniques; at least 5 camera-work types across the whole film; tense scenes use quick-cut close-ups, build-up scenes use slow long-take push-ins, climax scenes use speed ramps and orbits
 11. **Video generation tools**: only `batch_video.py` submit/poll is allowed (or `create_video_task.py` + `query_video_task.py` for failure retries)
 12. **Zero URL modification**: all image and video URLs must remain strictly in their original form throughout input and output — no tampering of any kind is allowed (including but not limited to modifying the domain, path, query parameters, or anchors).
@@ -807,11 +832,12 @@ Improvement suggestions: [specific suggestions]
 14. **Image generation**: prefer `python scripts/batch_image_generate.py` for batch parallel generation (Step 4 character portraits, Step 5 storyboard images); use `python scripts/image_generate.py` for supplementary single images
 15. **Content-safe wording**: avoid directly using high-risk terms like war/gore/weapons in video prompts; use euphemistic substitutes
 16. **Artifact verification**: after Step 7 completes, the Step 8 artifact completeness check and quality scoring must be performed; any missing artifact means the task is judged a failure
-17. **Show key outputs**: after each step completes, the step's key outputs (document summaries, image previews, video links, scoring reports, etc.) **must** be shown directly to the user rather than only returning file paths. The user should clearly see the plot outline, character portraits, **storyboard images**, videos, and other core outputs in the conversation flow
-18. **Storyboard images must be shown**: after Step 5 completes, all storyboard image previews **must** be shown in Markdown image format (using TOS URLs), so the user can confirm the visuals before proceeding to video generation
+17. **Show key outputs**: after each step completes, the step's key outputs (document summaries, image previews, video links, scoring reports, etc.) **must** be shown directly to the user rather than only returning file paths. The user should clearly see the plot outline, character portraits, **storyboard images**, videos, and other core outputs in the conversation flow — **and the same response must also carry the first tool call of the next step** (see "Never Pause Between Steps"); showing outputs is never a reason to end the turn
+18. **Storyboard images must be shown**: after Step 5 completes, all storyboard image previews **must** be shown in Markdown image format (using TOS URLs), so the user can see the visuals — then proceed to video generation immediately in the same response; do not wait for the user to confirm
 19. **Video display format**: all videos (storyboard videos and the final merged video) **must** be shown using the `<video src="{tos_url}" width="640" controls>description</video>` format. Plain-text URLs, URLs wrapped in Markdown code blocks, and Markdown link format are **forbidden**
 20. **Install ffmpeg on demand**: check for and install ffmpeg before Step 7 (video synthesis) begins; installing on demand avoids disrupting the earlier creative stages
 21. **Scene generation fallback**: when storyboard image generation fails, retry automatically (up to 3 times); after retries fail, simplify the prompt and try again, ensuring as many scenes as possible generate successfully
+22. **No pausing between steps**: never end a reply without a tool call until Step 8's report (ending with `🏁 Pipeline complete`) is delivered, unless you are asking the user a decision only they can make or reporting an unrecoverable failure — see "Never Pause Between Steps"
 
 ## What Makes a Good Comic Drama
 

@@ -51,6 +51,7 @@ Key features include:
 | **Short-Link Service** | [`app/short_link/`](app/short_link/) - FastAPI URL shortener (in-memory dict or Redis backend) |
 | **E2E Driver** | [`app/main.py`](app/main.py) - runs the full 7-step pipeline against the local services |
 | **Runtime Patches** | [`workarounds.py`](app/market-agent/src/workarounds.py) - shared JSON-repair and ADK patches (one copy per service) |
+| **Auto-continue Guard** | [`pipeline_guard.py`](app/director-agent/src/pipeline_guard.py) - installed in the director, evaluate, and release services: if an agent ends its turn without its mandatory tool call (`transfer_to_agent`, `image_generate`, `video_generate`, `evaluate_media`, `video_combine`), the guard injects a `continue_pipeline` tool call so the service returns a complete result (one copy per service) |
 | **Cloud Provider Bootstrap** | [`consts.py`](app/market-agent/src/consts.py) - sets `CLOUD_PROVIDER=byteplus` before veadk is imported (one copy per service) |
 | **Config Examples** | `app/<service>/config.yaml.example` - per-service model names, API bases, and service URLs |
 
@@ -201,7 +202,15 @@ uv pip install agentkit-sdk-python
 
 **Step 2:** Deploy the four workers, one at a time, from each service's `src/` directory.
 
-**Note**: We assume here that `MODEL_AGENT_API_KEY`, `BYTEPLUS_ACCESS_KEY`, `BYTEPLUS_SECRET_KEY`, `DATABASE_TOS_BUCKET`, `BYTEPLUS_WEB_SEARCH_API_KEY`, and `SHORTEN_URL_SERVICE_URL` are defined in your shell environment.
+**Note**: We assume here that `MODEL_AGENT_API_KEY`, `BYTEPLUS_ACCESS_KEY`, `BYTEPLUS_SECRET_KEY`, `DATABASE_TOS_BUCKET`, `BYTEPLUS_WEB_SEARCH_API_KEY`, and `SHORTEN_URL_SERVICE_URL` are defined in your shell environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first, from the project root (`ad_video_gen_a2a`), before changing into each service's `src/` directory:
+
+```bash
+set -a && source ./.env && set +a
+```
+
+This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
+
+**Note**: The `--cloud_provider byteplus` flag in the commands below is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
 
 For example, for the director agent:
 
@@ -221,6 +230,7 @@ uv run agentkit config \
 --runtime_envs SHORTEN_URL_SERVICE_URL=$SHORTEN_URL_SERVICE_URL \
 --runtime_envs AGENTKIT_CLOUD_PROVIDER=byteplus \
 --runtime_envs CLOUD_PROVIDER=byteplus \
+--cloud_provider byteplus \
 --launch_type cloud
 uv run agentkit launch
 ```
@@ -243,6 +253,7 @@ uv run agentkit config \
 --runtime_envs REMOTE_AGENT_RELEASE_AGENT_URL={{release_agent_url}} \
 --runtime_envs AGENTKIT_CLOUD_PROVIDER=byteplus \
 --runtime_envs CLOUD_PROVIDER=byteplus \
+--cloud_provider byteplus \
 --launch_type cloud
 uv run agentkit launch
 ```

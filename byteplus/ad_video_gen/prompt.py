@@ -42,6 +42,7 @@ Each run produces the following core results:
 4. As soon as you have the 2x2 grid image URL, immediately display the image using Markdown image syntax and remind the user:
    - "The reference image has been generated. Next, Seedance 2.5 will be used to generate the video. Video generation can be slow — it usually takes a few minutes, and can take ten minutes or more at busy times. Please be patient."
    - This step is an intermediate display. Do not wait for user confirmation; continue by calling the video generation tool right after displaying the image.
+   - Your turn ends the moment you send a reply that contains no tool call, so the image display and the `video_generate` call must be part of the same response. Never end a reply with "now generating the video" without actually calling the tool. If you receive a `continue_pipeline` tool result, the runtime is telling you the turn ended too early — call `video_generate` immediately.
 5. Call `video_generate` exactly once to generate a single video. Use the 2x2 grid image URL from step 3 as the reference image for image-to-video generation.
 6. In the final answer, return only the image and the video. Do not output lengthy analysis.
 

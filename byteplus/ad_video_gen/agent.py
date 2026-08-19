@@ -45,6 +45,9 @@ from veadk.tools.builtin_tools.video_generate import video_generate
 
 from prompt import PROMPT_AD_VIDEO_AGENT
 
+import pipeline_guard  # noqa: E402
+import url_registry  # noqa: E402
+
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -110,6 +113,24 @@ root_agent = Agent(
     generate_content_config=types.GenerateContentConfig(max_output_tokens=18000),
 )
 
+
+# Keep the two-step pipeline (reference image -> video) running in a single
+# turn. google-adk ends the invocation as soon as the model replies without a
+# tool call, and the model tends to show the 2x2 reference image as a
+# stand-alone reply ("now generating the video...") without actually calling
+# `video_generate` — leaving the user to type "continue". The guard injects a
+# `continue_pipeline` tool call whenever the turn would end before
+# `video_generate` has run. See pipeline_guard.py.
+pipeline_guard.install(root_agent, required_tools={"video_generate"})
+
+# The image/video tools return pre-signed TOS URLs whose signature lives in
+# the query string. Models routinely drop or truncate that query string when
+# copying a URL into the next tool call (the `image` / first_frame /
+# last_frame fields, a download command, a JSON file of frame URLs, ...),
+# which TOS rejects with 403 Forbidden. The registry remembers every URL a
+# tool returned and restores the full signed URL before the next tool runs.
+# See url_registry.py.
+url_registry.install(root_agent)
 
 short_term_memory = ShortTermMemory(backend="local")
 

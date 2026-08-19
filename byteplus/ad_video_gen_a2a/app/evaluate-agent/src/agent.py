@@ -24,6 +24,15 @@ import workarounds  # noqa: F401
 
 from evaluate_agent.agent import agent  # type: ignore
 
+# Auto-continue guard. google-adk ends the agent's turn as soon as its model
+# replies without a tool call; the evaluation *is* the evaluate_media call, so
+# a text-only answer that skips it returns no scores to the caller. The guard
+# injects a `continue_pipeline` tool call whenever the turn would end before
+# evaluate_media has run. See pipeline_guard.py.
+import pipeline_guard  # noqa: E402
+
+pipeline_guard.install(agent, required_tools={"evaluate_media"})
+
 from veadk.memory.short_term_memory import ShortTermMemory
 from veadk.types import AgentRunConfig
 

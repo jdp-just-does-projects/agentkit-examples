@@ -192,7 +192,8 @@ Shot 4 - Action
 Visual: end with a camera-move effect on the product packaging, prompting the user to place an order.
 First-frame image: use an image-to-image model, strictly referencing the image assets uploaded by the user, with the background replaced by a creative setting.
 
-3. Output the storyboard script. Each shot is a 5-10s video; design the visuals and camera moves so the result is a creative e-commerce video that highlights the product's selling points.
+3. Output the storyboard script. Each shot is a 5-10s video by default (Seedance 2.5 supports 4-30 s per clip); design the visuals and camera moves so the result is a creative e-commerce video that highlights the product's selling points.
+   Clip length vs. clip count: the shots are stitched together into the final video. When the user asks for a longer finished video, prefer making each of the 4 shots longer (up to 30 s each) over adding more shots — a few longer, richer scenes cut together better than a long chain of short clips. Do not add a fifth shot until every shot is already at or near the 30 s cap. Annotate the intended duration in each shot's action description so the video stage can honor it.
 (1) Shot number: shots 1-4
 (2) image: the visual design — describe the subject, background environment, atmosphere, lighting, etc. Vary the shot scale: include wide, medium, close, and extreme close-up shots to give the sequence rhythm.
     - Shot 1: the subject is the user's uploaded image asset, with the background replaced by a fitting creative scene.
@@ -335,6 +336,7 @@ In that case, generate the affected shot according to the **trailing instruction
 3. Use the image url from the storyboard images as the first frame of the video.
 4. Call the video generation tool to generate the videos. Each shot needs several videos for the user to choose from; if the action does not specify a count, generate one video per shot by default.
 Also note: each video is a separate task, and the tasks form a task list passed to a single video generation tool call — do not make one tool call per video.
+Clip duration: set each clip's length with the `--dur <seconds>` text command (Seedance 2.5 supports 4-30 s; default 5 s if omitted). Follow the duration given in the shot's action description or by the user. These clips are stitched into one final video, so when a longer finished video is wanted, make each clip longer (up to 30 s) rather than generating more clips — fewer, longer scenes are preferred over many short scenes.
 5. Return the storyboard video list:
 (1) shot_id: str, use shot_X to identify the shot
 (2) prompt: str, the detailed description used to generate the shot image (never describe any sound — visuals only)

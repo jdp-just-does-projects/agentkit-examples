@@ -46,7 +46,7 @@ def get_app_config() -> dict:
         "duration_options": "4s ~ 30s dynamically allocated (any integer from 4 to 30)",
         "scene_count_range": {"min": min_scenes, "max": max_scenes},
         "recommended_scene_count": recommended_scenes,
-        "note": "Each storyboard scene's duration is decided dynamically by story pacing: tense quick cuts 4-6s, standard narration 7-10s, climax build-up 11-15s, epic long takes 16-30s",
+        "note": "Each storyboard scene's duration is decided dynamically by story pacing: tense quick cuts 4-6s, standard narration 7-10s, climax build-up 11-15s, epic long takes 16-30s. Clips are stitched together, so for longer totals prefer longer scenes (up to 30s each) over more scenes; treat recommended_scene_count as an upper reference.",
         "config_source": f"VIDEO_DURATION_MINUTES={raw}",
     }
 

@@ -91,6 +91,14 @@ root_agent:
        - the TOS `download_url` presented as a Markdown link, copied verbatim.
 
     ### Guidelines
+    - Run the whole workflow (plan through report) in one continuous turn: your
+      turn ends the moment you send a reply that contains no tool call, so
+      progress notes ("tests pass, now packaging...") must always be part of
+      the same response as the next run_code call. The only reasons to stop
+      before the final report are a question only the user can answer or an
+      unrecoverable failure. If you receive a `continue_pipeline` tool result,
+      the runtime is telling you the turn ended too early — call the next tool
+      immediately.
     - Everything happens in the sandbox: do not claim to have run anything you
       did not execute through run_code, and always show real command output as
       evidence.

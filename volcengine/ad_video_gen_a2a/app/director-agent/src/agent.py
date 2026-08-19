@@ -25,6 +25,24 @@ import workarounds  # noqa: F401
 
 from director_agent.agent import agent  # type: ignore
 
+# Auto-continue guard. google-adk ends an agent's turn as soon as its model
+# replies without a tool call. The director must always hand off to a
+# sub-agent (transfer_to_agent), and the image / video sub-agents must actually
+# call their generation tool before answering — a text-only reply at either
+# point returns an incomplete result to the caller instead of the storyboard
+# images / videos. The guard injects a `continue_pipeline` tool call whenever
+# such a turn would end before the required tool has run. See pipeline_guard.py.
+import pipeline_guard  # noqa: E402
+
+pipeline_guard.install_by_name(
+    agent,
+    {
+        "director_agent": {"required_tools": {"transfer_to_agent"}},
+        "image_generate_agent": {"required_tools": {"image_generate"}},
+        "video_generate_agent": {"required_tools": {"video_generate"}},
+    },
+)
+
 from veadk.memory.short_term_memory import ShortTermMemory
 from veadk.types import AgentRunConfig
 

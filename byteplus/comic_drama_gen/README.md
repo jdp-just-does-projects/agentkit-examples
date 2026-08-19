@@ -20,6 +20,7 @@ An AI-powered comic drama production Agent built on BytePlus AgentKit. Simply in
 - **Multi-Genre Support**: Mythology, martial arts, cultivation, urban, sci-fi, children's stories, and 10+ more genres
 - **MCP Tool Integration**: Video editing capability via `@pickstar-2002/video-clip-mcp`
 - **Checkpoint Resume**: Interrupted tasks can be resumed from the last completed step
+- **Runs Unattended**: The pipeline runs from story idea to final video in a single turn. If the model ever ends a turn between steps (a text-only "moving on to Step N" reply, which would otherwise stop the run and force you to type "continue"), the runtime guard in `pipeline_guard.py` injects a `continue_pipeline` tool call so the run resumes on its own
 - **Parallel Image Generation**: Character portraits and storyboard images support parallel generation for significantly improved efficiency
 - **Auto-Retry on Failure**: Automatic retry on scene generation failures for higher success rates
 
@@ -243,6 +244,8 @@ comic_drama_gen/
 ├── agent.py                # Agent entry (MCP tool registration, skill loading, session storage)
 ├── agent.yaml              # Agent configuration (model, system instructions)
 ├── consts.py               # Default constants + .env auto-loading
+├── pipeline_guard.py       # Auto-continue guard: keeps the 8-step run going if the model ends a turn between steps
+├── url_registry.py         # Signed-URL registry: restores TOS signed URLs the model truncated
 ├── .env.example            # Environment variable template (copy to .env)
 ├── .env                    # Environment variable config file (create from .env.example)
 ├── pyproject.toml          # Python project configuration
@@ -309,7 +312,13 @@ uv pip install agentkit-sdk-python
 
 **Step 1:** Make sure you are in the current directory (`comic_drama_gen`), then configure AgentKit:
 
-**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment
+**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first:
+
+```bash
+set -a && source ./.env && set +a
+```
+
+This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
 
 ```bash
 uv run agentkit config \
@@ -319,8 +328,11 @@ uv run agentkit config \
   --runtime_envs MODEL_AGENT_API_KEY=$MODEL_AGENT_API_KEY \
   --runtime_envs AGENTKIT_CLOUD_PROVIDER=byteplus \
   --runtime_envs CLOUD_PROVIDER=byteplus \
+  --cloud_provider byteplus \
   --launch_type cloud
 ```
+
+**Note**: The `--cloud_provider byteplus` flag is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
 
 > **Important**: Environment variables exported in your shell are **not** uploaded to the cloud runtime automatically — only the `runtime_envs` entries in `agentkit.yaml` (plus the contents of a local `.env` file, which the deploy step merges in) reach the deployed runtime. If `MODEL_AGENT_API_KEY` is missing from `runtime_envs`, the deployed agent has no ModelArk API key and every image/video generation call fails with a 401. The `agent.py` startup mirrors `MODEL_AGENT_API_KEY` to `ARK_API_KEY`, so this single variable covers the LLM, image, and video calls.
 

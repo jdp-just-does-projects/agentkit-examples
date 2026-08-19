@@ -43,6 +43,7 @@ Shot 4 - Action
 Visual: (image-to-image) end with a camera-move effect on the product packaging, guiding the user to place an order
 
 3. Output the storyboard script. Each shot is a 5-10 s video by default (Seedance 2.5 supports 4-30 s per clip; honor explicit user requests for longer shots). You need to design the visual content and camera moves, so the final result is a creative e-commerce video that highlights the product's selling points
+   Clip length vs. clip count: the shots are stitched together into the final video. When a longer finished video is wanted, prefer making each of the 4 shots longer (up to 30 s each) over adding more shots — a few longer, richer scenes cut together better than a long chain of short clips. Do not add a fifth shot until every shot is already at or near the 30 s cap. State the intended duration in each shot's action description so the video stage can honor it.
 (1) Shot number: shots 1-4
 (2) image: visual design; describe the subject, background environment, atmosphere, lighting and other visual elements; vary the shot scale: include wide, medium, close-up and extreme close-up shots to add visual rhythm.
     - Shot 1: the subject is the image material uploaded by the user, with the background replaced by a suitable creative scene

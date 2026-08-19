@@ -133,7 +133,8 @@ async def generate(prompt, first_frame_image=None, last_frame_image=None):
         "model": model,
         "content": content,
         # "generate_audio": True,       # for seedance 1.5 pro only
-        "duration": 5,
+        # Duration is controlled via the `--dur` text command in the prompt
+        # (request-body parameters would override it). Seedance 2.5: 4-30 s.
     }
 
     # Build headers
@@ -182,10 +183,10 @@ async def video_generate(
                 - prompt (str):
                     Text describing the video to generate. Supports English and Chinese.
                     You may append **model text commands** after the prompt to control resolution,
-                    aspect ratio, fps, watermark, seed, camera lock, etc.
-                    Format: `... --rs <resolution> --rt <ratio> --fps <fps> --wm <bool> --seed <int> --cf <bool>`
+                    aspect ratio, duration, fps, watermark, seed, camera lock, etc.
+                    Format: `... --rs <resolution> --rt <ratio> --dur <seconds> --fps <fps> --wm <bool> --seed <int> --cf <bool>`
                     Example:
-                        "A kitten rides a skateboard through the park. --rs 720p --rt 16:9 --fps 24 --wm true --seed 11 --cf false"
+                        "A kitten rides a skateboard through the park. --rs 720p --rt 16:9 --dur 5 --fps 24 --wm true --seed 11 --cf false"
 
             Optional per item:
                 - first_frame (str | None):
@@ -216,6 +217,10 @@ async def video_generate(
         --rt / --ratio <value>            Aspect ratio. Typical: 16:9 (default), 9:16, 4:3, 3:4, 1:1, 2:1, 21:9.
                                           Some models support `keep_ratio` (keep source image ratio) or `adaptive`
                                           (auto choose suitable ratio).
+
+        --dur / --duration <seconds>      Clip length in seconds. Seedance 2.5 supports **4–30 s** (default 5).
+                                          When clips will be stitched into a longer final video, prefer
+                                          longer clips (up to 30 s) over a larger number of short clips.
 
         --fps / --framespersecond <int>   Frame rate. Common: 16 or 24 (model-dependent).
 
@@ -261,7 +266,7 @@ async def video_generate(
                     "video_name": "logo_reveal.mp4",
                     "first_frame": "https://cdn.example.com/brand/logo_start.png",
                     "last_frame": "https://cdn.example.com/brand/logo_end.png",
-                    "prompt": "The brand logo transforms from line art to full color. --rs 1080p --rt 1:1 --fps 24 --cf true"
+                    "prompt": "The brand logo transforms from line art to full color. --rs 1080p --rt 1:1 --dur 6 --fps 24 --cf true"
                 }
             ]
     """

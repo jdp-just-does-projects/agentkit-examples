@@ -24,6 +24,23 @@ import workarounds  # noqa: F401
 
 from release_agent.agent import agent  # type: ignore
 
+# Auto-continue guard. google-adk ends an agent's turn as soon as its model
+# replies without a tool call. The release agent must hand off to its
+# sub-agents (transfer_to_agent) and film_generate_agent must actually call
+# video_combine before answering; a text-only reply at either point returns no
+# final video to the caller. The guard injects a `continue_pipeline` tool call
+# whenever such a turn would end before the required tool has run. See
+# pipeline_guard.py.
+import pipeline_guard  # noqa: E402
+
+pipeline_guard.install_by_name(
+    agent,
+    {
+        "release_agent": {"required_tools": {"transfer_to_agent"}},
+        "film_generate_agent": {"required_tools": {"video_combine"}},
+    },
+)
+
 from veadk.memory.short_term_memory import ShortTermMemory
 from veadk.types import AgentRunConfig
 

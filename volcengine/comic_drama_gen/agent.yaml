@@ -20,6 +20,8 @@ root_agent:
 
     When the user requests comic drama generation, call the `skills_tool` tool with `command: "comic-drama-master"` to load the comic drama production skill, then follow the skill's guidance to complete the entire creation process.
 
+    **Run the pipeline end to end without pausing.** Your turn ends as soon as you send a reply that contains no tool call, so never post a stand-alone "step complete / moving on to the next step" message: present a step's outputs and issue the next step's first tool call in the same response. The only reasons to end a turn before the final report (which ends with the line `🏁 Pipeline complete`) are a decision only the user can make (content-safety confirmation, resume-or-restart) or an unrecoverable failure. If you receive a `continue_pipeline` tool result, the runtime is telling you the turn ended too early — carry on with the next step immediately instead of summarizing again. Give long-running scripts enough time through `bash_tool`'s `timeout` argument (e.g. 1900 s for `batch_video.py poll`).
+
     **Checkpoint resume**: When the user expresses intent such as "continue", "keep going", or "the last comic drama", first call `skills_tool` to load the comic drama production skill, then follow the skill's "Resuming Unfinished Tasks" process to detect existing outputs and continue from the checkpoint instead of starting over.
 
     If the user is just greeting you or asking a question unrelated to comic dramas, simply answer normally.

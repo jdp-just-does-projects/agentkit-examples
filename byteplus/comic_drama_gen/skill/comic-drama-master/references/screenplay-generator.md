@@ -65,6 +65,8 @@ Write in chapter structure, where the number of chapters = scene_count (each cha
 
 **While writing the outline, dynamically allocate a duration to each chapter (4 to 30 seconds)**, ensuring the total duration ≈ `total_seconds` (±10% tolerance allowed).
 
+**Prefer longer chapters over more chapters.** The chapter videos are stitched together into the finished film, so when `total_seconds` is large, reach it by lengthening chapters (Seedance 2.5 supports up to 30 seconds per clip) rather than by adding chapters — a few longer, richer scenes cut together better than a long chain of short clips. Lean toward the lower end of `scene_count_range` and let more chapters use the 11–15 s and 16–30 s ranges before you increase `scene_count`.
+
 ### Smart Duration Allocation Decision Table
 
 | Condition (any one is sufficient) | Recommended duration range |

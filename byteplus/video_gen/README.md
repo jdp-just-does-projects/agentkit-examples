@@ -56,6 +56,7 @@ Key features include:
 | --- | --- |
 | **Agent Service** | [`agent.py`](agent.py) - Main application, includes MCP tool registration |
 | **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - keeps the multi-step run going in one turn: if the model ends a turn with a text-only progress note before the merged video has been uploaded to TOS, the guard injects a `continue_pipeline` tool call so the user never has to type "continue" |
+| **Signed-URL Registry** | [`url_registry.py`](url_registry.py) - the image/video tools return pre-signed TOS URLs whose signature is in the query string; models often drop or truncate that query string when copying a URL into `file_download` or the `image` / `first_frame` / `last_frame` fields, which TOS rejects with `403 Forbidden`. The registry records every URL a tool returns and restores the full signed URL before the next tool runs |
 | **Agent Configuration** | [`agent.yaml`](agent.yaml) - Model settings, system instructions, and tool list |
 | **Custom Tools** | [`tool/`](tool/) - File download and TOS upload utility tools |
 | **MCP Integration** | `@pickstar-2002/video-clip-mcp` - Local video stitching service |

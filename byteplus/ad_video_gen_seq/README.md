@@ -45,6 +45,7 @@ Key features include:
 | Component | Description |
 | --- | --- |
 | **Agent Module** | [`agent.py`](agent.py) - sys.path bootstrap, ADK workarounds, and the `root_agent` export for `veadk web` |
+| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - installed on the image / evaluate / video / release sub-agents: if one of them ends its turn without calling its mandatory tool (`image_generate`, `evaluate_media`, `video_generate`, `video_combine` + `upload_file_to_tos`), the guard injects a `continue_pipeline` tool call so the stage finishes instead of handing an incomplete result to the next one |
 | **Service Entry** | [`main.py`](main.py) - AgentKit service entry (`AgentkitAgentServerApp`) |
 | **Debug Script** | [`debug.py`](debug.py) - runs the full pipeline once from the command line |
 | **Root Orchestration** | [`app/root/`](app/root/) - `SequentialAgent` with progress-callback interleaving |
@@ -181,7 +182,13 @@ uv pip install agentkit-sdk-python
 
 **Step 1:** Make sure you are in the current directory (`ad_video_gen_seq`), then configure AgentKit:
 
-**Note**: We assume here that `MODEL_AGENT_API_KEY`, `BYTEPLUS_ACCESS_KEY`, `BYTEPLUS_SECRET_KEY`, and `DATABASE_TOS_BUCKET` are defined in your shell environment
+**Note**: We assume here that `MODEL_AGENT_API_KEY`, `BYTEPLUS_ACCESS_KEY`, `BYTEPLUS_SECRET_KEY`, and `DATABASE_TOS_BUCKET` are defined in your shell environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first:
+
+```bash
+set -a && source ./.env && set +a
+```
+
+This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
 
 ```bash
 uv run agentkit config \
@@ -194,8 +201,11 @@ uv run agentkit config \
 --runtime_envs BYTEPLUS_WEB_SEARCH_API_KEY=$BYTEPLUS_WEB_SEARCH_API_KEY \
 --runtime_envs AGENTKIT_CLOUD_PROVIDER=byteplus \
 --runtime_envs CLOUD_PROVIDER=byteplus \
+--cloud_provider byteplus \
 --launch_type cloud
 ```
+
+**Note**: The `--cloud_provider byteplus` flag is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
 
 **Step 2:** Deploy the runtime:
 

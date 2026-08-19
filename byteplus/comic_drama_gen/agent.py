@@ -47,6 +47,9 @@ from veadk.agent_builder import AgentBuilder  # noqa: E402
 from veadk.memory.short_term_memory import ShortTermMemory  # noqa: E402
 from veadk.models.ark_llm import ArkLlm  # noqa: E402
 
+import pipeline_guard  # noqa: E402
+import url_registry  # noqa: E402
+
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -129,6 +132,43 @@ agent.skills_mode = "local"
 agent.load_skills()
 
 agent.tools.append(mcpTool)
+
+# Keep the pipeline running end-to-end: google-adk ends the invocation as soon
+# as the model replies without a tool call, and the model tends to present a
+# step's outputs as a stand-alone reply ("Step 5 complete, moving to Step 6")
+# without issuing the next tool call — leaving the user to type "continue".
+# The guard detects that and injects a `continue_pipeline` tool call so the
+# loop keeps going. See pipeline_guard.py for details.
+pipeline_guard.install(
+    agent,
+    # The Step 8 report (see SKILL.md) is the only legitimate text-only ending.
+    completion_markers=(
+        "pipeline complete",
+        "artifact verification report",
+        "overall score",
+    ),
+    nudge_message=(
+        "⚠️ AUTO-CONTINUE GUARD: your previous message ended the turn without a "
+        "tool call, but the comic drama pipeline is not finished (no Step 8 "
+        "artifact verification report / '🏁 Pipeline complete' line has been "
+        "delivered). The user must NOT have to type 'continue' between steps. "
+        "Proceed with the next pipeline step RIGHT NOW by calling the required "
+        "tool (bash_tool / write_file_tool / ...). Do not re-summarize the "
+        "previous step. Only if the entire pipeline is genuinely finished, or "
+        "you are blocked on a decision that only the user can make (e.g. "
+        "content-safety confirmation, or a missing artifact you cannot repair), "
+        "reply with a short message that says so explicitly."
+    ),
+)
+
+# The image/video tools return pre-signed TOS URLs whose signature lives in
+# the query string. Models routinely drop or truncate that query string when
+# copying a URL into the next tool call (the `image` / first_frame /
+# last_frame fields, a download command, a JSON file of frame URLs, ...),
+# which TOS rejects with 403 Forbidden. The registry remembers every URL a
+# tool returned and restores the full signed URL before the next tool runs.
+# See url_registry.py.
+url_registry.install(agent)
 
 runner = Runner(agent=agent, app_name=app_name)
 # support veadk web

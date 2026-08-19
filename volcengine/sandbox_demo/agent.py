@@ -43,6 +43,8 @@ from veadk.agent_builder import AgentBuilder
 from veadk.models.ark_llm import ArkLlm
 from veadk.memory.short_term_memory import ShortTermMemory
 
+import pipeline_guard  # noqa: E402
+
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -105,6 +107,20 @@ agent_builder = AgentBuilder()
 yaml_path = str(_AGENT_DIR / "agent.yaml")
 
 agent = agent_builder.build(path=yaml_path)
+
+# Keep the plan -> scaffold -> test -> package -> upload -> report workflow
+# running in a single turn. google-adk ends the invocation as soon as the
+# model replies without a tool call, and the model tends to narrate progress
+# ("tests pass, now packaging...") as a stand-alone reply without issuing the
+# next run_code call — leaving the user to type "continue". The guard injects
+# a `continue_pipeline` tool call whenever the turn would end before the TOS
+# URL pair has been requested and the download link reported. See
+# pipeline_guard.py.
+pipeline_guard.install(
+    agent,
+    required_tools={"create_tos_transfer_urls"},
+    completion_markers=("download",),
+)
 
 runner = Runner(agent=agent, app_name=app_name)
 # support veadk web

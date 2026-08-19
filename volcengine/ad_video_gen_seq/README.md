@@ -45,6 +45,7 @@ Key features include:
 | Component | Description |
 | --- | --- |
 | **Agent Module** | [`agent.py`](agent.py) - sys.path bootstrap, ADK workarounds, and the `root_agent` export for `veadk web` |
+| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - installed on the image / evaluate / video / release sub-agents: if one of them ends its turn without calling its mandatory tool (`image_generate`, `evaluate_media`, `video_generate`, `video_combine` + `upload_file_to_tos`), the guard injects a `continue_pipeline` tool call so the stage finishes instead of handing an incomplete result to the next one |
 | **Service Entry** | [`main.py`](main.py) - AgentKit service entry (`AgentkitAgentServerApp`) |
 | **Debug Script** | [`debug.py`](debug.py) - runs the full pipeline once from the command line |
 | **Root Orchestration** | [`app/root/`](app/root/) - `SequentialAgent` with progress-callback interleaving |

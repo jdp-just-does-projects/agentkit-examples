@@ -342,7 +342,7 @@ poll return format (includes video URLs):
 }
 ```
 
-- It loops and waits internally until everything completes or times out (30 minutes)
+- It loops and waits internally until everything completes or times out (30 minutes) — so run it through `bash_tool` with `timeout: 1900`; the default 600 s tool timeout would kill the poll before long clips finish. If the tool call does time out anyway, simply run the same poll command again (the tasks keep running server-side; nothing needs to be resubmitted)
 - If any scenes fail, resubmit them individually via `create_video_task.py` with the same prompt and first_frame_url, then poll again
 - **Never interrupt**: do not report intermediate progress to the user; keep looping until everything succeeds
 

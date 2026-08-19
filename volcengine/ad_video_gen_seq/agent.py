@@ -226,5 +226,26 @@ _adk_functions._get_tool = _get_tool_with_fallback
 # are in place, so every sub-agent model is patched consistently.
 from app import root_agent  # noqa: E402
 
+# Auto-continue guard for the sub-agents whose job *is* a tool call. google-adk
+# ends a sub-agent's turn as soon as its model replies without a tool call, so
+# a model that narrates ("Generating the four first-frame images now...") or
+# emits a result-shaped answer without actually calling image_generate /
+# video_generate / evaluate_media / video_combine + upload_file_to_tos hands an
+# incomplete result to the next stage of the sequential pipeline. The guard
+# injects a `continue_pipeline` tool call whenever such a turn would end
+# before the required tool(s) have run. See pipeline_guard.py.
+import pipeline_guard  # noqa: E402
+
+pipeline_guard.install_by_name(
+    root_agent,
+    {
+        "image_agent": {"required_tools": {"image_generate"}},
+        "image_evaluate_agent": {"required_tools": {"evaluate_media"}},
+        "video_agent": {"required_tools": {"video_generate"}},
+        "video_evaluate_agent": {"required_tools": {"evaluate_media"}},
+        "release_agent": {"required_tools": {"video_combine", "upload_file_to_tos"}},
+    },
+)
+
 # support veadk web
 __all__ = ["root_agent"]

@@ -51,6 +51,7 @@ Shot scale and perspective: use professional shot-scale terms such as extreme wi
     To explain this point: when you call the `video_generate` tool, generate from the images selected by `image_evaluate_agent`, and generate the number required by `market_agent` for each shot.
     For example, if `market_agent` sets the number of videos per shot to 2, then you must generate 2 videos per shot, 2*4 = 8 videos in total.
 Also note: treat each video as a separate task, assemble them into a task list, and call the video generation tool once. Do not call the tool once per video.
+Clip duration: set each clip's length with the `--dur <seconds>` text command (Seedance 2.5 supports 4-30 s). Follow the duration given in the shot's action description or by the user. The selected clips are stitched into one final video, so when a longer finished video is wanted, make each clip longer (up to 30 s) rather than generating more clips — fewer, longer scenes are preferred over many short scenes.
 5. Return the shot video list
 (1) shot_id: str, use shot_X to identify the shot
 (2) prompt: str, detailed description of how to generate the shot image (no sound description of any kind; visual description only)

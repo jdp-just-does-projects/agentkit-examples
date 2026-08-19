@@ -51,6 +51,7 @@ Key features include:
 | **Short-Link Service** | [`app/short_link/`](app/short_link/) - FastAPI URL shortener (in-memory dict or Redis backend) |
 | **E2E Driver** | [`app/main.py`](app/main.py) - runs the full 7-step pipeline against the local services |
 | **Runtime Patches** | [`workarounds.py`](app/market-agent/src/workarounds.py) - shared JSON-repair and ADK patches (one copy per service) |
+| **Auto-continue Guard** | [`pipeline_guard.py`](app/director-agent/src/pipeline_guard.py) - installed in the director, evaluate, and release services: if an agent ends its turn without its mandatory tool call (`transfer_to_agent`, `image_generate`, `video_generate`, `evaluate_media`, `video_combine`), the guard injects a `continue_pipeline` tool call so the service returns a complete result (one copy per service) |
 | **Config Examples** | `app/<service>/config.yaml.example` - per-service model names, API bases, and service URLs |
 
 ## Quick Start

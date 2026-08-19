@@ -15,7 +15,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Union
 from urllib.parse import unquote, urlparse
 
 import requests
@@ -28,7 +28,7 @@ def file_download(
     url: List[str],
     save_dir: Optional[str] = None,
     filename: Optional[List[str]] = None,
-) -> List[str]:
+) -> Union[List[str], dict]:
     """
     Batch download files from the internet to local storage, supporting simultaneous download of multiple URLs to avoid agent loop calls
 
@@ -38,11 +38,13 @@ def file_download(
         filename: List of filenames to save; if None, filenames will be extracted from URLs
 
     Returns:
-        List[str]: List of absolute paths to downloaded files
+        List[str]: List of absolute paths to downloaded files (same order as
+        `url`) when every download succeeds. If any download fails, a dict
+        {"status", "paths", "errors", "hint"} is returned instead, where
+        `paths` has None for the failed entries and `errors` lists each
+        failed URL with its error message.
 
     Raises:
-        requests.exceptions.RequestException: Network request failure
-        IOError: File write failure
         ValueError: Parameter error
 
     Examples:
@@ -77,13 +79,36 @@ def file_download(
     else:
         raise ValueError("filename must be a list or None")
 
-    # Download all files
+    # Download all files. A failure on one URL must not abort the whole tool
+    # call (which would end the agent's turn with an unhandled exception);
+    # report it per URL instead so the agent can retry just that one.
     downloaded_paths = []
+    errors = []
     for url_item, filename_item in zip(urls, filenames):
-        path = _download_single_file(url_item, save_dir, filename_item)
-        downloaded_paths.append(path)
+        try:
+            path = _download_single_file(url_item, save_dir, filename_item)
+            downloaded_paths.append(path)
+        except Exception as e:  # noqa: BLE001 - surfaced to the agent below
+            logger.warning("Download failed for %s: %s", url_item, e)
+            downloaded_paths.append(None)
+            errors.append({"url": url_item, "error": str(e)})
 
-    return downloaded_paths
+    if not errors:
+        return downloaded_paths
+
+    hint = ""
+    if any("403" in err["error"] for err in errors):
+        hint = (
+            " A 403 usually means the signed URL was modified or truncated: "
+            "re-issue the call with the exact, complete URL (including every "
+            "query parameter) as it was returned by the generating tool."
+        )
+    return {
+        "status": "partial_failure" if any(downloaded_paths) else "failed",
+        "paths": downloaded_paths,
+        "errors": errors,
+        "hint": hint.strip(),
+    }
 
 
 def _download_single_file(

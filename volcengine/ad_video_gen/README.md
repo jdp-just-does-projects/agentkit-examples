@@ -41,6 +41,8 @@ Key features include:
 | --- | --- |
 | **Agent Service** | [`agent.py`](agent.py) - AgentKit service entry and `root_agent` definition |
 | **Agent Prompt** | [`prompt.py`](prompt.py) - The single-agent marketing workflow prompt |
+| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - keeps the multi-step run going in one turn: if the model ends a turn with a text-only progress note before `video_generate` has run, the guard injects a `continue_pipeline` tool call so the user never has to type "continue" |
+| **Signed-URL Registry** | [`url_registry.py`](url_registry.py) - the image/video tools return pre-signed TOS URLs whose signature is in the query string; models often drop or truncate that query string when copying a URL into a later tool call, which TOS rejects with `403 Forbidden`. The registry records every URL a tool returns and restores the full signed URL before the next tool runs |
 | **Model Defaults** | [`consts.py`](consts.py) - Default model names and API bases for VeADK |
 | **Short-term Memory** | Session context maintenance to preserve conversational continuity |
 

@@ -49,6 +49,7 @@ User receives a signed TOS download link to the tested code
 | Component | Description |
 | --- | --- |
 | **Agent Service** | [`agent.py`](agent.py) - Main application |
+| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - keeps the multi-step run going in one turn: if the model ends a turn with a text-only progress note before the TOS download link has been requested and reported, the guard injects a `continue_pipeline` tool call so the user never has to type "continue" |
 | **Agent Configuration** | [`agent.yaml`](agent.yaml) - Model settings, system instructions, and tool list |
 | **Sandbox Execution** | `veadk.tools.builtin_tools.run_code` - Runs shell commands and code in the AIO Sandbox |
 | **Custom Tools** | [`tool/tos_presign.py`](tool/tos_presign.py) - Presigned TOS upload/download URL pair generator |
