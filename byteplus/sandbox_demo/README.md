@@ -27,21 +27,63 @@ This use case demonstrates how to build an agent around the AgentKit sandbox wit
 
 The flow looks like this:
 
-```text
-User Request ("build me a web page that ...")
-    ↓
-AgentKit Runtime
-    ↓
-Cloud Coding Agent (sandbox_web_coder)
-    ├── run_code Tool ──────────► AgentKit AIO Sandbox (IPython kernel)
-    │                                ├── write source files (Path.write_text)
-    │                                ├── syntax checks + unit tests
-    │                                ├── serve app + curl verification
-    │                                ├── zip project
-    │                                └── curl -T project.zip <presigned PUT URL> ──► TOS
-    └── TOS Presign Tool (generates the presigned PUT/GET URL pair)
-    ↓
-User receives a signed TOS download link to the tested code
+```mermaid
+flowchart TB
+    user(["User<br/>&quot;build me a web page that ...&quot;"])
+
+    subgraph runtime["AgentKit Runtime — agent.py"]
+        direction TB
+        app["AgentkitAgentServerApp<br/>HTTP :8000"]
+        mem[("ShortTermMemory<br/>backend = local")]
+
+        subgraph agent["sandbox_web_coder — built by AgentBuilder from agent.yaml"]
+            direction TB
+            llm["deepseek-v4-pro-260425<br/>plan → scaffold → test → package → upload → report"]
+            guard["pipeline_guard.py<br/>required tool: create_tos_transfer_urls<br/>completion marker: download"]
+        end
+
+        runcode["run_code — veadk builtin tool<br/>language = python3"]
+        presign["create_tos_transfer_urls<br/>tool/tos_presign.py"]
+    end
+
+    subgraph sandbox["AgentKit AIO Sandbox — session per agent + user + ADK session, TTL AGENTKIT_TOOL_TTL"]
+        direction TB
+        kernel["Persistent IPython kernel<br/>shell via ! · files persist between calls"]
+        proj["/tmp/workspace/&lt;slug&gt;/<br/>sources → py_compile / node --check<br/>→ unit tests → http.server + curl<br/>→ &lt;slug&gt;.zip"]
+        kernel --> proj
+    end
+
+    ark["BytePlus ModelArk<br/>deepseek-v4-pro-260425"]
+    tos[("TOS bucket<br/>DATABASE_TOS_BUCKET")]
+
+    user -- "coding task" --> app --> llm
+    app <--> mem
+    llm <--> ark
+    llm -- "1 · run_code(code, python3)" --> runcode
+    runcode -- "AgentKit InvokeTool · RunCode<br/>AGENTKIT_TOOL_ID" --> kernel
+    kernel -. "stdout / stderr as evidence" .-> llm
+
+    llm -- "2 · filename = &lt;slug&gt;.zip" --> presign
+    presign -- "pre-signed PUT + GET pair<br/>credentials stay in the runtime" --> llm
+    llm -- "3 · curl -T &lt;slug&gt;.zip &lt;upload_url&gt;" --> runcode
+    proj -- "PUT the zip straight from the sandbox" --> tos
+    llm -- "4 · summary, file list, test output,<br/>pre-signed download link" --> user
+
+    guard -. "injects continue_pipeline when a turn ends<br/>before the download link is delivered" .-> llm
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class llm,guard agent
+    class app,runcode,presign tool
+    class kernel,proj,ark ext
+    class tos,mem store
+    class user actor
+    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
+    style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
+    style sandbox fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
 
 ## Agent Capabilities

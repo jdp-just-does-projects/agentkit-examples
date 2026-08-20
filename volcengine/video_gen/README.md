@@ -25,19 +25,67 @@ This use case demonstrates how to build a production-level video generation syst
 
 The system architecture is as follows:
 
-![Video Generation Agent with AgentKit Runtime](img/archtecture_video_gen.jpg)
+```mermaid
+flowchart TB
+    user(["User<br/>a children's story or plot"])
 
-```text
-User Request
-    ↓
-AgentKit Runtime
-    ↓
-Video Story Generator
-    ├── Image Generation Tool (Visual AI)
-    ├── Video Generation Tool (Visual AI)
-    ├── File Download Tool (Batch Download)
-    ├── Video Stitching Tool (MCP)
-    └── TOS Upload Tool (Storage & Sharing)
+    subgraph runtime["AgentKit Runtime — agent.py"]
+        direction TB
+        app["AgentkitAgentServerApp<br/>HTTP :8000"]
+        mem[("ShortTermMemory<br/>backend = local")]
+
+        subgraph agent["storybook_illustrator — built by AgentBuilder from agent.yaml"]
+            direction TB
+            llm["deepseek-v4-pro-260425<br/>3-scene rewrite → 4 frames → 3 clips → merge → upload"]
+            guard["pipeline_guard.py<br/>required tool: upload_file_to_tos"]
+            registry["url_registry.py<br/>restores pre-signed URLs in tool arguments"]
+        end
+
+        t_search["web_search<br/>veadk builtin tool"]
+        t_img["image_generate<br/>veadk builtin tool"]
+        t_vid["video_generate<br/>veadk builtin tool"]
+        t_dl["file_download<br/>tool/file_download.py"]
+        t_up["upload_file_to_tos<br/>tool/tos_upload.py"]
+        mcp["McpToolset — stdio<br/>@pickstar-2002/video-clip-mcp"]
+    end
+
+    subgraph ark["Volcano Engine Ark"]
+        direction TB
+        seedream["Seedream 5.0 Pro<br/>doubao-seedream-5-0-pro-260628"]
+        seedance["Seedance 2.5<br/>doubao-seedance-2-5-260628"]
+    end
+
+    search["Volcano Engine web search API"]
+    localfs[("Local download dir<br/>the 3 storyboard clips")]
+    tos[("TOS<br/>merged story video · signed URL")]
+
+    user -- "story" --> app --> llm
+    app <--> mem
+
+    llm -- "1 · research the story background" --> t_search --> search
+    llm -- "2a · text_to_single → frame 1<br/>2b · 3 × single_image_to_single, frame 1 as style reference<br/>size 1024x1024" --> t_img --> seedream
+    llm -- "3 · 3 tasks: frame pairs as first/last frame<br/>720p · 10 s each · no speech" --> t_vid --> seedance
+    llm -- "5a · download the 3 clips" --> t_dl --> localfs
+    llm -- "5b · stitch the clips" --> mcp --> localfs
+    llm -- "6 · upload the merged video" --> t_up --> tos
+    tos -- "7 · signed video URL" --> user
+
+    guard -. "injects continue_pipeline when a turn ends<br/>before upload_file_to_tos has run" .-> llm
+    registry -. "keeps the signed image / video URLs whole<br/>across download, merge and upload" .-> t_dl
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class llm,guard,registry agent
+    class app,t_search,t_img,t_vid,t_dl,t_up,mcp tool
+    class seedream,seedance,search ext
+    class tos,mem,localfs store
+    class user actor
+    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
+    style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
+    style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
 
 Key features include:

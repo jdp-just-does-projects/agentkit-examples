@@ -15,14 +15,64 @@ When given product information (product name, selling points, target audience, u
 
 This sample uses a deliberately lightweight single-agent architecture: one Root Agent directly calls the built-in `image_generate` and `video_generate` tools to complete the full workflow — marketing story planning, reference image generation, image-to-video generation, and result preview. There is no candidate generation, quality evaluation, video stitching, or TOS upload; for those, see the `ad_video_gen_seq` and `ad_video_gen_a2a` samples.
 
-```text
-User Request
-    ↓
-AgentKit Runtime
-    ↓
-Ad Video Generator (Root Agent)
-    ├── Image Generation Tool (one 2x2 storyboard reference image)
-    └── Video Generation Tool (one reference-image-to-video generation)
+```mermaid
+flowchart TB
+    user(["User<br/>product brief + optional product image URL"])
+
+    subgraph runtime["AgentKit Runtime — agent.py"]
+        direction TB
+        app["AgentkitAgentServerApp<br/>HTTP :8000"]
+        mem[("ShortTermMemory<br/>backend = local")]
+
+        subgraph rootagent["root_agent — veadk Agent"]
+            direction TB
+            llm["deepseek-v4-pro-260425<br/>instruction: PROMPT_AD_VIDEO_AGENT<br/>max_output_tokens = 18000"]
+            guard["pipeline_guard.py<br/>after_model / after_tool callbacks<br/>required tool: video_generate"]
+            registry["url_registry.py<br/>before_tool / after_tool callbacks"]
+        end
+
+        imgtool["image_generate<br/>veadk builtin tool"]
+        vidtool["video_generate<br/>veadk builtin tool"]
+    end
+
+    subgraph ark["Volcano Engine Ark"]
+        direction TB
+        seedream["Seedream 5.0 Pro<br/>doubao-seedream-5-0-pro-260628"]
+        seedance["Seedance 2.5<br/>doubao-seedance-2-5-260628"]
+    end
+
+    tos[("TOS<br/>pre-signed image / video URLs")]
+
+    user -- "1 · prompt" --> app
+    app <--> mem
+    app --> llm
+
+    llm -- "2 · exactly one task:<br/>a single 2x2 storyboard grid" --> imgtool
+    imgtool --> seedream --> tos
+    imgtool -. "signed grid image URL" .-> llm
+
+    llm -- "3 · reference_images = grid URL<br/>1080p · 15 s · 9:16 · no speech" --> vidtool
+    vidtool --> seedance --> tos
+    vidtool -. "signed video URL" .-> llm
+
+    llm -- "4 · Markdown image + HTML video tag" --> user
+
+    guard -. "injects continue_pipeline when a turn<br/>would end before video_generate ran" .-> llm
+    registry -. "restores the full signed URL<br/>in the next tool call's arguments" .-> vidtool
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class llm,guard,registry agent
+    class imgtool,vidtool,app tool
+    class seedream,seedance ext
+    class tos,mem store
+    class user actor
+    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
+    style rootagent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
+    style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
 
 Key features include:

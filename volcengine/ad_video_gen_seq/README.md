@@ -16,19 +16,59 @@ When given product information (product name, selling points, target audience, u
 
 Unlike the lightweight single-agent `ad_video_gen` sample, this sample builds a full production pipeline with a `SequentialAgent`: one Root Agent orchestrates seven sub-agents in a fixed order, with candidate generation, model-based quality evaluation, video stitching, and TOS upload. Progress messages are streamed back to the user after each stage.
 
-```text
-User Request
-    ↓
-AgentKit Runtime
-    ↓
-Root Agent (SequentialAgent)
-    ├── market_agent            Marketing plan + generation config (vision: inspects the product image)
-    ├── storyboard_agent        4-shot AIDA storyboard script
-    ├── image_agent             Candidate first-frame images per shot (Seedream 5.0 Pro)
-    ├── image_evaluate_agent    Scores and selects the best image per shot
-    ├── video_agent             Candidate videos per shot (Seedance 2.5, first-frame guided)
-    ├── video_evaluate_agent    Scores and selects the best video per shot
-    └── release_agent           Stitches shots locally (moviepy/ffmpeg) and uploads to TOS
+```mermaid
+flowchart TB
+    user(["User<br/>product brief + optional product image URL"])
+    app["AgentkitAgentServerApp — main.py<br/>HTTP :8000 · also veadk web / debug.py<br/>agent.py adds the sys.path and JSON-repair patches"]
+
+    subgraph root["root_agent — MMSequentialAgent · every stage agent runs on doubao-seed-2-1-turbo-260628"]
+        direction TB
+        market["1 · market_agent<br/>marketing plan + generation config<br/>reads the product image · tool: web_search"]
+        story["2 · storyboard_agent<br/>4-shot AIDA storyboard script"]
+        image["3 · image_agent<br/>tool: image_generate<br/>N candidate first frames per shot"]
+        ieval["4 · image_evaluate_agent<br/>tool: evaluate_media<br/>scores and picks one image per shot"]
+        video["5 · video_agent<br/>tool: video_generate<br/>candidate clips from the winning first frame"]
+        veval["6 · video_evaluate_agent<br/>tool: evaluate_media<br/>scores and picks one clip per shot"]
+        release["7 · release_agent<br/>tools: video_combine · upload_file_to_tos"]
+    end
+
+    cb(["callback_agent_0..6 — interleaved after every stage<br/>streams state.cb_agent_output / cb_agent_state"])
+    guard["pipeline_guard.install_by_name<br/>image · both evaluate · video · release<br/>injects continue_pipeline on an early turn end"]
+    shortener["app/utils.py — UrlShortener<br/>signed media URL ⇄ compact ⌥code"]
+
+    search["Volcano Engine web search API"]
+    seedream["Ark · Seedream 5.0 Pro<br/>doubao-seedream-5-0-pro-260628"]
+    evalmodel["Ark · G-Eval vision scoring<br/>MODEL_EVALUATE_NAME · default doubao-seed-2-1-turbo-260628"]
+    seedance["Ark · Seedance 2.5<br/>doubao-seedance-2-5-260628"]
+    ffmpeg["Local moviepy / ffmpeg<br/>merged_videos/"]
+    tos[("TOS<br/>final video · 7-day signed URL")]
+
+    user -- "prompt" --> app --> market
+    market --> story --> image --> ieval --> video --> veval --> release
+
+    market --> search
+    image --> seedream
+    ieval --> evalmodel
+    video --> seedance
+    veval --> evalmodel
+    release --> ffmpeg --> tos
+    tos -- "signed URL of the final video" --> user
+    cb -. "progress message after every stage" .-> user
+
+    guard -. "stops a stage handing on an incomplete result" .-> root
+    shortener -. "shortens every generated media URL and<br/>resolves it back before the next tool call" .-> root
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class market,story,image,ieval,video,veval,release,cb agent
+    class app,guard,shortener tool
+    class seedream,seedance,evalmodel,search,ffmpeg ext
+    class tos store
+    class user actor
+    style root fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
 ```
 
 Key features include:

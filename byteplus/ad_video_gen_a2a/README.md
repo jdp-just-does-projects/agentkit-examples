@@ -16,17 +16,82 @@ When given product information (a product image URL and/or a product link plus a
 
 Six services cooperate to run the pipeline. The multimedia agent is the root orchestrator: it receives user requests and dispatches each stage to a remote worker agent over A2A. Three workers resolve compact short links through the short-link service so long asset URLs never pass through (and get corrupted by) the models.
 
-```text
-app/main.py (E2E driver)  /  any ADK client
-    ↓
-multimedia-agent :8004  (root orchestrator, AgentkitAgentServerApp)
-    ↓ A2A (RemoteVeAgent)
-    ├── market-agent   :8000  Product parsing + marketing plan (web search, web page parsing, image understanding)
-    ├── director-agent :8001  Storyboard script + candidate images (Dola Seedream 5.0 Pro) + candidate videos (Dreamina Seedance 2.5)
-    ├── evaluate-agent :8002  Scores storyboard images/videos (aesthetics, quality, consistency)
-    └── release-agent  :8003  Composes the selected shot videos into the final video (moviepy/ffmpeg)
+```mermaid
+flowchart TB
+    user(["User · app/main.py E2E driver or any ADK client<br/>product image URL and/or product link + text brief"])
 
-short_link :8005  URL shortening service used by director/evaluate/release
+    subgraph mm["multimedia-agent :8004 — AgentkitAgentServerApp"]
+        direction TB
+        mmroot["root_agent · deepseek-v4-pro-260425<br/>sub_agents = 4 × RemoteVeAgent (A2A clients)<br/>ShortTermMemory backend = local"]
+    end
+
+    subgraph market["market-agent :8000 — SequentialAgent"]
+        direction TB
+        mk1["market_agent<br/>tools: web_search · read_url_link<br/>Playwright page parsing · vision image filter"]
+        mk2["format_agent → output_schema VideoConfig<br/>output_key: video_config"]
+        mk1 --> mk2
+    end
+
+    subgraph director["director-agent :8001 — Agent with 3 sequential sub-agents"]
+        direction TB
+        dstory["story_sequential_agent<br/>storyboard_agent → story_format_agent<br/>output_key: shot_list"]
+        dimage["image_agent<br/>image_generate_agent → image_format_agent<br/>output_key: image_list"]
+        dvideo["video_agent<br/>video_generate_agent → video_format_agent<br/>output_key: video_list"]
+        dstory --> dimage --> dvideo
+    end
+
+    subgraph evaluate["evaluate-agent :8002 — EvaluateAgent"]
+        direction TB
+        ev["tool: evaluate_media (G-Eval)<br/>scores every candidate image / video<br/>emits the raw tool result to the caller"]
+    end
+
+    subgraph release["release-agent :8003 — Agent → film_agent"]
+        direction TB
+        rel["film_generate_agent · tool: video_combine<br/>→ format_agent · output_key: video_url"]
+    end
+
+    shortlink["short_link :8005 — FastAPI<br/>dict or Redis backend<br/>POST /shorten · GET /t/ redirect"]
+
+    ark["BytePlus ModelArk<br/>agents + formatters: deepseek-v4-pro-260425<br/>vision work (image understanding, G-Eval): dola-seed-2-1-turbo-260628<br/>images: dola-seedream-5-0-pro-260628 · videos: dreamina-seedance-2-5-260628"]
+    web["BytePlus web search + target product pages"]
+    ffmpeg["Local moviepy / ffmpeg<br/>final composed video"]
+
+    user -- "prompt" --> mmroot
+    mmroot -- "1 · A2A: parse product, plan the video" --> mk1
+    mmroot -- "2 · A2A: storyboard → images → clips" --> dstory
+    mmroot -- "3 · A2A: score images, then score clips" --> ev
+    mmroot -- "4 · A2A: compose the final video" --> rel
+    mk2 -. "video_config" .-> mmroot
+    dvideo -. "shot_list · image_list · video_list" .-> mmroot
+    ev -. "scored_image_list / scored_video_list" .-> mmroot
+    rel -. "video_url" .-> mmroot
+    mmroot -- "final video URL" --> user
+
+    mk1 --> web
+    mk1 --> ark
+    dimage --> ark
+    dvideo --> ark
+    ev --> ark
+    rel --> ffmpeg
+
+    dimage <-- "shorten / resolve media URLs" --> shortlink
+    ev <-- "resolve media URLs" --> shortlink
+    rel <-- "resolve media URLs" --> shortlink
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class mmroot,mk1,mk2,dstory,dimage,dvideo,ev,rel agent
+    class shortlink tool
+    class ark,web,ffmpeg ext
+    class user actor
+    style mm fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
+    style market fill:#f7fbff,stroke:#5b8def,color:#0d1b33
+    style director fill:#f7fbff,stroke:#5b8def,color:#0d1b33
+    style evaluate fill:#f7fbff,stroke:#5b8def,color:#0d1b33
+    style release fill:#f7fbff,stroke:#5b8def,color:#0d1b33
 ```
 
 Key features include:

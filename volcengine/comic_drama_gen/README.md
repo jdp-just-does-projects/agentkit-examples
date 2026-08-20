@@ -4,10 +4,6 @@
 
 An AI-powered comic drama production Agent built on Volcano Engine AgentKit. Simply input a story idea, and the agent will automatically complete the entire pipeline — from screenplay writing, character design, storyboard generation, scene video generation, to final video compositing — delivering a complete comic drama video with a TOS download link.
 
-<p align="center">
-  <img src="img/archtecture_video_gen.jpg" width="80%" alt="Architecture">
-</p>
-
 ## Core Features
 
 - **End-to-End Automation**: 8-step pipeline from creative concept to finished film, no manual intervention required
@@ -26,44 +22,119 @@ An AI-powered comic drama production Agent built on Volcano Engine AgentKit. Sim
 
 ## Production Pipeline
 
-```
-User Story Idea
-  ↓
-Step 1: Load Config → Smart duration mode (4s~30s dynamic range)
-Step 2: Initialize Task Directory → Create isolated directory under COMIC_DRAMA_OUTPUT_DIR
-  ↓ ⚠️ Content Safety Pre-screening
-Step 3: Screenplay Generation → web search research + script writing + duration allocation
-Step 4: Character Design → image generation for portraits (parallel)
-Step 5: Scene Art → image generation for storyboards (parallel)
-Step 6: Scene Videos → batch_video.py submit/poll (individual duration)
-Step 7: Video Compositing → ffmpeg merge + TOS upload
-Step 8: Output Verification & Quality Scoring
-  ↓
-Complete Comic Drama Video + TOS Signed URL + Scoring Report
-```
+```mermaid
+flowchart TB
+    idea(["User story idea"])
 
-<p align="center">
-  <img src="img/process_video_gen.jpg" width="80%" alt="Pipeline">
-</p>
+    s0["Step 0 · Resume detection<br/>task_manager.py list"]
+    s1["Step 1 · Load configuration<br/>app_config.py · VIDEO_DURATION_MINUTES<br/>smart duration mode, 4-30 s per scene"]
+    s2["Step 2 · Initialize task directory<br/>task_manager.py init"]
+    safety{{"Content-safety pre-review<br/>low / medium / high risk"}}
+    s3["Step 3 · Screenplay<br/>web_search.py research<br/>+ smart duration allocation"]
+    s4["Step 4 · Character design<br/>batch_image_generate.py — parallel portraits"]
+    s5["Step 5 · Scene art<br/>batch_image_generate.py — storyboard frames<br/>STYLE_ANCHOR + character prompt reuse"]
+    s6["Step 6 · Scene videos<br/>batch_video.py submit → poll<br/>per-scene duration · auto-retry on failure"]
+    s7["Step 7 · Synthesis and delivery<br/>file_download.py → video_merge.py (ffmpeg)<br/>→ tos_upload.py"]
+    s8["Step 8 · Artifact verification + scoring<br/>verify_task.py · video_scorer.py"]
+
+    art[("Task directory<br/>requirements.md · plot.md · script.md<br/>characters.md + characters/<br/>storyboard/ · videos/ · final_video.mp4")]
+    tos[("TOS · signed download URL")]
+    done(["Final video + TOS link + scoring report<br/>ending with the Pipeline complete line"])
+
+    idea --> s0 --> s1 --> s2 --> safety
+    safety -- "medium: euphemistic rewrites<br/>high: warn the user first" --> s3
+    s3 --> s4 --> s5 --> s6 --> s7 --> s8 --> done
+    s0 -. "unfinished task found: resume from the last completed step" .-> s6
+
+    s3 --> art
+    s4 --> art
+    s5 --> art
+    s6 --> art
+    s7 --> art
+    art --> s8
+    s7 --> tos --> done
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class s0,s1,s2,s3,s4,s5,s6,s7,s8 tool
+    class safety ext
+    class art,tos store
+    class idea,done actor
+```
 
 ## System Architecture
 
-```text
-User Request
-    ↓
-AgentKit Runtime
-    ↓
-Comic Drama Master (comic_drama_master)
-    ├── Skill: comic-drama-master  → 8-step full pipeline orchestration
-    ├── Image Generation (image_generate / batch_image_generate)
-    ├── Video Generation (create_video_task / batch_video)
-    ├── File Download (file_download)
-    ├── Video Merging (video_merge + MCP video-clip)
-    ├── TOS Upload (tos_upload)
-    ├── Web Search (web_search)
-    ├── Task Management (task_manager)
-    ├── Output Verification (verify_task)
-    └── AI Quality Scoring (video_scorer)
+```mermaid
+flowchart TB
+    user(["User<br/>story idea · or &quot;continue&quot; to resume a task"])
+
+    subgraph runtime["AgentKit Runtime — agent.py"]
+        direction TB
+        app["AgentkitAgentServerApp<br/>HTTP :8000"]
+        mem[("ShortTermMemory<br/>sqlite · .data/sessions.db")]
+
+        subgraph agent["comic_drama_master — built by AgentBuilder from agent.yaml"]
+            direction TB
+            llm["deepseek-v4-pro-260425<br/>content-safety pre-review · 8-step orchestration"]
+            guard["pipeline_guard.py<br/>completion markers: pipeline complete ·<br/>artifact verification report · overall score"]
+            registry["url_registry.py<br/>restores pre-signed URLs in tool arguments"]
+        end
+
+        skills["SkillsToolset (skills_mode = local)<br/>skills · bash · read_file · write_file · edit_file"]
+        mcp["McpToolset — stdio<br/>@pickstar-2002/video-clip-mcp"]
+    end
+
+    subgraph skill["skill/comic-drama-master — loaded on demand by the skills tool"]
+        direction TB
+        skillmd["SKILL.md — Steps 0-8 + camera-language guide<br/>references/: screenplay · character · scene ·<br/>storyboard · video-synthesizer"]
+        scripts["scripts/ run through bash:<br/>app_config · task_manager · web_search<br/>image_generate · batch_image_generate<br/>batch_video submit/poll · file_download<br/>video_merge · tos_upload · video_scorer · verify_task"]
+        skillmd --> scripts
+    end
+
+    subgraph ark["Volcano Engine Ark — called directly over HTTPS by the scripts"]
+        direction TB
+        seedream["Seedream 5.0 Pro<br/>doubao-seedream-5-0-pro-260628<br/>character portraits + storyboard frames"]
+        seedance["Seedance 2.5<br/>doubao-seedance-2-5-260628<br/>one clip per scene, 4-30 s each"]
+        scorer["Vision model — video_scorer.py<br/>quality score per artifact"]
+    end
+
+    search["Volcano Engine web search API<br/>background research for the screenplay"]
+    outdir[("COMIC_DRAMA_OUTPUT_DIR/task_&lt;timestamp&gt;_&lt;name&gt;/<br/>plot.md · script.md · characters/ · storyboard/<br/>videos/ · final_video.mp4")]
+    tos[("TOS<br/>final video · signed download URL")]
+
+    user -- "story idea" --> app --> llm
+    app <--> mem
+    llm --> skills --> skillmd
+    llm -- "bash: python scripts/..." --> scripts
+    scripts --> seedream
+    scripts --> seedance
+    scripts --> scorer
+    scripts --> search
+    scripts <--> outdir
+    scripts -- "video_merge.py (ffmpeg) → tos_upload.py" --> tos
+    llm -. "optional clip editing" .-> mcp
+    tos -- "signed URL + verification report" --> user
+
+    guard -. "injects continue_pipeline until Step 8<br/>reports the final Pipeline complete line" .-> llm
+    registry -. "keeps signed image / video URLs intact" .-> scripts
+
+    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
+    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
+    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
+    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
+    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
+    class llm,guard,registry agent
+    class app,skills,mcp,skillmd,scripts tool
+    class seedream,seedance,scorer,search ext
+    class tos,mem,outdir store
+    class user actor
+    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
+    style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
+    style skill fill:#f2fbf6,stroke:#2e9e6b,color:#08281a
+    style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
 
 ## Quick Start
