@@ -15,6 +15,11 @@ When given product information (product name, selling points, target audience, u
 
 This sample uses a deliberately lightweight single-agent architecture: one Root Agent directly calls the built-in `image_generate` and `video_generate` tools to complete the full workflow — marketing story planning, reference image generation, image-to-video generation, and result preview. There is no candidate generation, quality evaluation, video stitching, or TOS upload; for those, see the `ad_video_gen_seq` and `ad_video_gen_a2a` samples.
 
+![Architecture](img/architecture.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TB
     user(["User<br/>product brief + optional product image URL"])
@@ -74,6 +79,8 @@ flowchart TB
     style rootagent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
     style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
+
+</details>
 
 Key features include:
 

@@ -25,6 +25,11 @@ This use case demonstrates how to build a production-level video generation syst
 
 The system architecture is as follows:
 
+![Architecture](img/architecture.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TB
     user(["User<br/>a children's story or plot"])
@@ -87,6 +92,8 @@ flowchart TB
     style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
     style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
+
+</details>
 
 Key features include:
 

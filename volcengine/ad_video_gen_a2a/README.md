@@ -16,6 +16,11 @@ When given product information (a product image URL and/or a product link plus a
 
 Five services cooperate to run the pipeline. The multimedia agent is the root orchestrator: it receives user requests and dispatches each stage to a remote worker agent over A2A. Generated media URLs (TOS image links, Ark video links) are passed between the stages in full.
 
+![Architecture](img/architecture.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TB
     user(["User · app/main.py E2E driver or any ADK client<br/>product image URL and/or product link + text brief"])
@@ -86,6 +91,8 @@ flowchart TB
     style evaluate fill:#f7fbff,stroke:#5b8def,color:#0d1b33
     style release fill:#f7fbff,stroke:#5b8def,color:#0d1b33
 ```
+
+</details>
 
 Key features include:
 

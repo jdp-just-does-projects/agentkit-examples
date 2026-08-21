@@ -27,6 +27,11 @@ This use case demonstrates how to build an agent around the AgentKit sandbox wit
 
 The flow looks like this:
 
+![Architecture](img/architecture.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TB
     user(["User<br/>&quot;build me a web page that ...&quot;"])
@@ -85,6 +90,8 @@ flowchart TB
     style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
     style sandbox fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
+
+</details>
 
 ## Agent Capabilities
 

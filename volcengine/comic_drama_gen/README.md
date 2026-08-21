@@ -22,6 +22,11 @@ An AI-powered comic drama production Agent built on Volcano Engine AgentKit. Sim
 
 ## Production Pipeline
 
+![Production pipeline](img/production_pipeline.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TB
     idea(["User story idea"])
@@ -65,7 +70,14 @@ flowchart TB
     class idea,done actor
 ```
 
+</details>
+
 ## System Architecture
+
+![System architecture](img/system_architecture.png)
+
+<details>
+<summary>Mermaid source</summary>
 
 ```mermaid
 flowchart TB
@@ -136,6 +148,8 @@ flowchart TB
     style skill fill:#f2fbf6,stroke:#2e9e6b,color:#08281a
     style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
 ```
+
+</details>
 
 ## Quick Start
 

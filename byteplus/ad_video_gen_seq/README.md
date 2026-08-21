@@ -16,6 +16,11 @@ When given product information (product name, selling points, target audience, u
 
 Unlike the lightweight single-agent `ad_video_gen` sample, this sample builds a full production pipeline with a `SequentialAgent`: one Root Agent orchestrates seven sub-agents in a fixed order, with candidate generation, model-based quality evaluation, video stitching, and TOS upload. Progress messages are streamed back to the user after each stage.
 
+![Architecture](img/architecture.png)
+
+<details>
+<summary>Mermaid source</summary>
+
 ```mermaid
 flowchart TB
     user(["User<br/>product brief + optional product image URL"])
@@ -70,6 +75,8 @@ flowchart TB
     class user actor
     style root fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
 ```
+
+</details>
 
 Key features include:
 
