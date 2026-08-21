@@ -177,3 +177,119 @@ def _get_tool_with_fallback(function_call, tools_dict):
 _adk_functions._get_tool = _get_tool_with_fallback
 
 #### END OF WORKAROUND
+
+#### Start of workaround
+
+# google-adk 2.2.0's RemoteA2aAgent (the base class of veadk's RemoteVeAgent)
+# calls `self._a2a_client.send_message(request=..., request_metadata=...,
+# context=...)` in remote_a2a_agent.py, but veadk-python 1.1.2 pins
+# a2a-sdk==0.3.7, whose `BaseClient.send_message` only accepts
+# `(request, *, context)`. Every A2A hop therefore dies with
+# "A2A request failed: BaseClient.send_message() got an unexpected keyword
+# argument 'request_metadata'" and the orchestrator returns an event with no
+# content at all. a2a-sdk added the parameter in a later 0.3.x release, where
+# it is forwarded verbatim as `MessageSendParams.metadata`; back-port exactly
+# that behaviour so the pinned combination works. The patch is a no-op on any
+# a2a-sdk that already accepts the argument, so it can stay in place until
+# veadk relaxes its pin.
+import contextvars  # noqa: E402
+import inspect  # noqa: E402
+
+import a2a.client.base_client as _a2a_base_client  # noqa: E402
+
+if (
+    "request_metadata"
+    not in inspect.signature(_a2a_base_client.BaseClient.send_message).parameters
+):
+    # `send_message` builds the MessageSendParams itself, so hand the metadata
+    # down through a ContextVar (one context per asyncio task, so concurrent
+    # A2A calls stay isolated) and inject it where the params are constructed.
+    _pending_request_metadata = contextvars.ContextVar(
+        "a2a_pending_request_metadata", default=None
+    )
+    _original_message_send_params = _a2a_base_client.MessageSendParams
+
+    def _message_send_params_with_metadata(**kwargs):
+        metadata = _pending_request_metadata.get()
+        if metadata is not None and kwargs.get("metadata") is None:
+            kwargs["metadata"] = metadata
+        return _original_message_send_params(**kwargs)
+
+    # Only rebind the name inside base_client (its single construction site);
+    # a2a.types.MessageSendParams itself stays untouched for isinstance checks.
+    _a2a_base_client.MessageSendParams = _message_send_params_with_metadata
+
+    _original_send_message = _a2a_base_client.BaseClient.send_message
+
+    async def _send_message_with_request_metadata(
+        self, request, *, context=None, request_metadata=None
+    ):
+        token = _pending_request_metadata.set(request_metadata)
+        try:
+            async for event in _original_send_message(self, request, context=context):
+                yield event
+        finally:
+            try:
+                _pending_request_metadata.reset(token)
+            except ValueError:
+                # The generator was finalized in a different context than the
+                # one that set the token; the stale value dies with it.
+                pass
+
+    _a2a_base_client.BaseClient.send_message = _send_message_with_request_metadata
+
+#### END OF WORKAROUND
+
+#### Start of workaround
+
+# Every service's `format_agent` declares `output_schema=<pydantic model>` so
+# ADK validates the structured result. google-adk 2.2.0 also forwards that
+# schema to the provider as `response_format={"type": "json_schema", ...}`
+# (lite_llm._to_litellm_response_format), but BytePlus ModelArk chat models
+# such as deepseek-v4-pro-260425 only implement JSON mode, so the request is
+# rejected with:
+#   "The parameter `response_format.type` specified in the request are not
+#    valid: `json_schema` is not supported by this model"
+# and the agent returns that error string instead of the expected JSON.
+# Fall back to `{"type": "json_object"}` whenever LiteLLM does not advertise
+# schema support for the target model; the agents already pin the shape with
+# their prompts and enforce it locally through their `output_schema`
+# validation and the `fix_output_format*` after-model callbacks, so nothing is
+# lost. Models that do support json_schema keep it. Still required as of
+# google-adk 2.2.0; recheck on upgrades and when Ark adds schema support.
+import litellm as _litellm  # noqa: E402
+
+_original_to_litellm_response_format = _lite_llm._to_litellm_response_format
+
+
+def _to_litellm_response_format_with_json_mode_fallback(response_schema, model):
+    response_format = _original_to_litellm_response_format(
+        response_schema, model=model
+    )
+    if (
+        not isinstance(response_format, dict)
+        or response_format.get("type") != "json_schema"
+    ):
+        return response_format
+
+    try:
+        supports_schema = _litellm.supports_response_schema(model=model)
+    except Exception:  # unknown model: assume the conservative option
+        supports_schema = False
+
+    if supports_schema:
+        return response_format
+
+    logger.debug(
+        "Model %r does not support response_format 'json_schema'; "
+        "falling back to JSON mode ('json_object')",
+        model,
+    )
+    return {"type": "json_object"}
+
+
+_lite_llm._to_litellm_response_format = (
+    _to_litellm_response_format_with_json_mode_fallback
+)
+
+#### END OF WORKAROUND

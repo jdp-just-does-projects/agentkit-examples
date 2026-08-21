@@ -23,6 +23,17 @@ set_veadk_environment_variables()
 import workarounds  # noqa: F401
 
 from multimedia_agent.agent import root_agent
+
+# URL guard. Every asset URL in this pipeline is relayed *through* a model,
+# and a ~500-character pre-signed TOS URL is occasionally retyped with a
+# duplicated or dropped character - the download then fails with a 403 and the
+# caller receives a non-JSON error string. The guard restores any URL the model
+# mistyped from the authoritative value (tool output / the caller's message).
+# See url_guard.py.
+import url_guard  # noqa: E402
+
+url_guard.install(root_agent)
+
 from veadk.memory.short_term_memory import ShortTermMemory
 from agentkit import AgentkitAgentServerApp
 
