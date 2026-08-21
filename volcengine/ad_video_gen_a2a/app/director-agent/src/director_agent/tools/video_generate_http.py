@@ -14,11 +14,9 @@
 
 import asyncio
 import json
-import os
 import traceback
 from typing import Dict
 import aiohttp
-import urllib.parse
 
 from google.adk.tools import ToolContext
 from opentelemetry import trace
@@ -31,60 +29,6 @@ from veadk.version import VERSION
 
 logger = get_logger(__name__)
 
-# Short-link service configuration
-shorten_url_service_url = os.getenv("SHORTEN_URL_SERVICE_URL", None)
-assert shorten_url_service_url, (
-    "SHORTEN_URL_SERVICE_URL is not set. Set it in config.yaml "
-    "(shorten_url_service_url) or export it before starting the service."
-)
-
-
-async def resolve_short_url(short_url: str) -> str:
-    """
-    Resolve a short link back to its original URL.
-
-    Args:
-        short_url: the short link URL
-
-    Returns:
-        The original URL, or the short link itself if resolution fails.
-    """
-    if not shorten_url_service_url:
-        return short_url
-
-    try:
-        # Extract the short code from the short link.
-        # Short link format: http://127.0.0.1:8005/t/AbC123 or http://127.0.0.1:8005/t/video/AbC123
-        parsed_url = urllib.parse.urlparse(short_url)
-        path_parts = parsed_url.path.strip("/").split("/")
-
-        if len(path_parts) >= 2 and path_parts[0] == "t":
-            # Call the short-link service redirect endpoint to get the original URL
-            async with aiohttp.ClientSession() as session:
-                # Use a GET request to fetch the original URL (the short-link service returns the original URL string directly)
-                async with session.get(short_url) as response:
-                    if response.status == 200:
-                        # The short-link service returns the original URL string directly
-                        original_url = await response.text()
-                        original_url = original_url.strip().strip('"')
-                        logger.debug(
-                            f"Successfully resolved short URL: {short_url} -> {original_url}"
-                        )
-                        return original_url
-                    else:
-                        logger.warning(
-                            f"Failed to resolve short URL: {short_url}, status: {response.status}"
-                        )
-                        return short_url
-        else:
-            logger.warning(f"Not a valid short URL format: {short_url}")
-            return short_url
-
-    except Exception as e:
-        logger.error(f"Error resolving short URL {short_url}: {e}")
-        # If resolution fails, return the original short link
-        return short_url
-
 
 async def generate(prompt, first_frame_image=None, last_frame_image=None):
     """
@@ -95,12 +39,6 @@ async def generate(prompt, first_frame_image=None, last_frame_image=None):
     )
     base_url = getenv("MODEL_VIDEO_API_BASE", DEFAULT_VIDEO_MODEL_API_BASE)
     model = getenv("MODEL_VIDEO_NAME", DEFAULT_VIDEO_MODEL_NAME)
-
-    # Resolve short links back to original URLs
-    if first_frame_image:
-        first_frame_image = await resolve_short_url(first_frame_image)
-    if last_frame_image:
-        last_frame_image = await resolve_short_url(last_frame_image)
 
     # Build the content array
     prompt_with_media = (

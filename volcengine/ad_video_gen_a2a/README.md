@@ -14,7 +14,7 @@ When given product information (a product image URL and/or a product link plus a
 
 ## Overview
 
-Six services cooperate to run the pipeline. The multimedia agent is the root orchestrator: it receives user requests and dispatches each stage to a remote worker agent over A2A. Three workers resolve compact short links through the short-link service so long asset URLs never pass through (and get corrupted by) the models.
+Five services cooperate to run the pipeline. The multimedia agent is the root orchestrator: it receives user requests and dispatches each stage to a remote worker agent over A2A. Generated media URLs (TOS image links, Ark video links) are passed between the stages in full.
 
 ```mermaid
 flowchart TB
@@ -50,8 +50,6 @@ flowchart TB
         rel["film_generate_agent · tool: video_combine<br/>→ format_agent · output_key: video_url"]
     end
 
-    shortlink["short_link :8005 — FastAPI<br/>dict or Redis backend<br/>POST /shorten · GET /t/ redirect"]
-
     ark["Volcano Engine Ark<br/>agents + formatters: deepseek-v4-pro-260425<br/>vision work (image understanding, G-Eval): doubao-seed-2-1-turbo-260628<br/>images: doubao-seedream-5-0-pro-260628 · videos: doubao-seedance-2-5-260628"]
     web["Volcano Engine web search + target product pages"]
     ffmpeg["Local moviepy / ffmpeg<br/>final composed video"]
@@ -74,17 +72,12 @@ flowchart TB
     ev --> ark
     rel --> ffmpeg
 
-    dimage <-- "shorten / resolve media URLs" --> shortlink
-    ev <-- "resolve media URLs" --> shortlink
-    rel <-- "resolve media URLs" --> shortlink
-
     classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
     classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
     classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
     classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
     classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
     class mmroot,mk1,mk2,dstory,dimage,dvideo,ev,rel agent
-    class shortlink tool
     class ark,web,ffmpeg ext
     class user actor
     style mm fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
@@ -100,7 +93,6 @@ Key features include:
 - **MCP on every worker**: each worker also mounts a streamable-HTTP MCP endpoint at `/mcp` (via FastMCP), so the same capabilities are callable as MCP tools
 - **Web-based product parsing**: the market agent reads product links with a local Playwright browser (with SSRF/DoS guards) and filters product images with a vision model
 - **Candidate generation and automatic evaluation**: every shot gets several candidate images/videos which are scored on aesthetics, image quality, and consistency with the reference image
-- **URL shortening for LLM safety**: generated media URLs are mapped to compact short links so the models never corrupt them
 - **Malformed-JSON resilience**: every service applies shared [`workarounds.py`](app/market-agent/src/workarounds.py) patches that repair malformed model output (tool-call arguments, structured output) with `json-repair` instead of aborting the run
 - **English by Default**: Every agent in the pipeline (orchestrator and the four workers) is instructed to work in English by default — plans, storyboard scripts, image/video prompts, evaluation rationales, and replies. If your request is written in another language, the agents switch to that language for all of those outputs so the results are easy for you to review (see the `# Language` section in each `prompt.py`)
 
@@ -113,7 +105,6 @@ Key features include:
 | **Director Agent** | [`app/director-agent/`](app/director-agent/) - storyboard script, storyboard images, and storyboard videos |
 | **Evaluate Agent** | [`app/evaluate-agent/`](app/evaluate-agent/) - scores storyboard images and videos with a vision model |
 | **Release Agent** | [`app/release-agent/`](app/release-agent/) - composes the final video locally with moviepy |
-| **Short-Link Service** | [`app/short_link/`](app/short_link/) - FastAPI URL shortener (in-memory dict or Redis backend) |
 | **E2E Driver** | [`app/main.py`](app/main.py) - runs the full 7-step pipeline against the local services |
 | **Runtime Patches** | [`workarounds.py`](app/market-agent/src/workarounds.py) - shared JSON-repair and ADK patches (one copy per service) |
 | **Auto-continue Guard** | [`pipeline_guard.py`](app/director-agent/src/pipeline_guard.py) - installed in the director, evaluate, and release services: if an agent ends its turn without its mandatory tool call (`transfer_to_agent`, `image_generate`, `video_generate`, `evaluate_media`, `video_combine`), the guard injects a `continue_pipeline` tool call so the service returns a complete result (one copy per service) |
@@ -149,17 +140,7 @@ Video composition uses `moviepy`, which needs a working `ffmpeg` on the machine 
 
 #### Playwright Browser
 
-The market agent parses product web pages with a headless Chromium browser. After installing the Python dependencies (next step), install the browser with:
-
-```bash
-uv run playwright install chromium
-```
-
-On a fresh Linux machine you may also need the browser's system libraries:
-
-```bash
-uv run playwright install-deps chromium
-```
+The market agent parses product web pages with a headless Chromium browser. The browser itself is **not** installed by `uv sync` — it is a separate one-time download; see *Install the Playwright Browser (one time)* below.
 
 ### Install Dependencies
 
@@ -177,9 +158,25 @@ If you are in China and have connectivity issues, you can use this command inste
 uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
+### Install the Playwright Browser (one time)
+
+`uv sync` installs the Playwright *Python package*, but not the browser binary it drives. **Before launching the agents for the first time, run this once** — the market agent fails at startup without it:
+
+```bash
+uv run playwright install chromium
+```
+
+On a fresh Linux machine, also install the browser's system libraries (needs `sudo` on most distributions):
+
+```bash
+uv run playwright install-deps chromium
+```
+
+This is a one-time, per-machine step: the browser is downloaded into a shared Playwright cache (`~/.cache/ms-playwright` on Linux, `~/Library/Caches/ms-playwright` on macOS), so you only need to repeat it on a new machine or after clearing that cache. If you have already installed Playwright browsers for another project, the command is a no-op.
+
 ### Configure Environment Variables
 
-Set the following environment variables — either export them in your shell, or copy [`.env.example`](.env.example) to `.env` (in the project directory — shared by all services — next to a service's `config.yaml`, in its `src/` dir, or in the directory you launch from) and fill it in. `.env` is loaded automatically at startup (each service's `consts.py`, and `app/short_link/app.py`) and is optional; values in `.env` take precedence over variables exported in the shell, and anything missing from `.env` falls back to the shell environment. `.env` only applies to local runs — for cloud deploys pass values through `agentkit config --runtime_envs ...` (see below):
+Set the following environment variables — either export them in your shell, or copy [`.env.example`](.env.example) to `.env` (in the project directory — shared by all services — next to a service's `config.yaml`, in its `src/` dir, or in the directory you launch from) and fill it in. `.env` is loaded automatically at startup (by each service's `consts.py`) and is optional; values in `.env` take precedence over variables exported in the shell, and anything missing from `.env` falls back to the shell environment. `.env` only applies to local runs — for cloud deploys pass values through `agentkit config --runtime_envs ...` (see below):
 
 ```bash
 export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # Get from Volcano Engine Ark (方舟)
@@ -208,10 +205,11 @@ export MODEL_VIDEO_NAME=doubao-seedance-2-5-260628
 
 ## Local Execution
 
-Start the six services, each from its own directory (one terminal per service, or append `&` to background them). Start the short-link service and the four workers first — **the multimedia agent must start last**, because it fetches the workers' A2A agent cards at startup:
+If this is the first time you are running the sample on this machine, make sure you have run `uv run playwright install chromium` (see above) — the market agent needs the browser at startup.
+
+Start the five services, each from its own directory (one terminal per service, or append `&` to background them). Start the four workers first — **the multimedia agent must start last**, because it fetches the workers' A2A agent cards at startup:
 
 ```bash
-(cd app/short_link          && uv run python -m uvicorn app:app    --host 127.0.0.1 --port 8005 --loop asyncio)
 (cd app/market-agent/src    && uv run python -m uvicorn app:app    --host 127.0.0.1 --port 8000 --loop asyncio)
 (cd app/director-agent/src  && uv run python -m uvicorn app:app    --host 127.0.0.1 --port 8001 --loop asyncio)
 (cd app/evaluate-agent/src  && uv run python -m uvicorn app:app    --host 127.0.0.1 --port 8002 --loop asyncio)
@@ -259,11 +257,9 @@ Each worker is an independently deployable AgentKit runtime: the deployable unit
 uv pip install agentkit-sdk-python
 ```
 
-**Step 1:** Deploy the short-link service (or keep it running on any host every worker can reach) and note its public URL — it becomes `SHORTEN_URL_SERVICE_URL` for the director, evaluate, and release agents.
+**Step 1:** Deploy the four workers, one at a time, from each service's `src/` directory.
 
-**Step 2:** Deploy the four workers, one at a time, from each service's `src/` directory.
-
-**Note**: We assume here that `MODEL_AGENT_API_KEY`, `VOLCENGINE_ACCESS_KEY`, `VOLCENGINE_SECRET_KEY`, `DATABASE_TOS_BUCKET`, and `SHORTEN_URL_SERVICE_URL` are defined in your shell environment.
+**Note**: We assume here that `MODEL_AGENT_API_KEY`, `VOLCENGINE_ACCESS_KEY`, `VOLCENGINE_SECRET_KEY`, and `DATABASE_TOS_BUCKET` are defined in your shell environment.
 
 For example, for the director agent:
 
@@ -280,14 +276,13 @@ uv run agentkit config \
 --runtime_envs VOLCENGINE_ACCESS_KEY=$VOLCENGINE_ACCESS_KEY \
 --runtime_envs VOLCENGINE_SECRET_KEY=$VOLCENGINE_SECRET_KEY \
 --runtime_envs DATABASE_TOS_BUCKET=$DATABASE_TOS_BUCKET \
---runtime_envs SHORTEN_URL_SERVICE_URL=$SHORTEN_URL_SERVICE_URL \
 --launch_type cloud
 uv run agentkit launch
 ```
 
-Repeat for `market_agent` (add nothing TOS-related, but keep the model and AK/SK variables), `evaluate_agent` (add `SHORTEN_URL_SERVICE_URL` and `MODEL_EVALUATE_ITEM=doubao-seed-2-1-turbo-260628`), and `release_agent` (add `SHORTEN_URL_SERVICE_URL`). After each launch, note the runtime's public access domain from the [Volcano Engine AgentKit Console](https://console.volcengine.com/agentkit/region:agentkit+cn-beijing/runtime) (e.g. `https://xxxxx.apigateway-cn-beijing.volceapi.com`).
+Repeat for `market_agent` (add nothing TOS-related, but keep the model and AK/SK variables), `evaluate_agent` (add `MODEL_EVALUATE_ITEM=doubao-seed-2-1-turbo-260628`), and `release_agent`. After each launch, note the runtime's public access domain from the [Volcano Engine AgentKit Console](https://console.volcengine.com/agentkit/region:agentkit+cn-beijing/runtime) (e.g. `https://xxxxx.apigateway-cn-beijing.volceapi.com`).
 
-**Step 3:** Deploy the multimedia agent last, pointing it at the four workers' public URLs:
+**Step 2:** Deploy the multimedia agent last, pointing it at the four workers' public URLs:
 
 ```bash
 cd app/multimedia-agent/src
@@ -315,9 +310,9 @@ uv run agentkit invoke '{"prompt": "Generate a promotional video (Product Showca
 
 ## Cleanup / Teardown
 
-Local: stop the six uvicorn processes (Ctrl-C in each terminal, or `kill %1 %2 ...` if backgrounded) and remove the driver's output with `rm -rf tmp-json merged_videos`.
+Local: stop the five uvicorn processes (Ctrl-C in each terminal, or `kill %1 %2 ...` if backgrounded) and remove the driver's output with `rm -rf tmp-json merged_videos`.
 
-Cloud: remove each deployed runtime by running the following from the same service directory you deployed it from (multimedia agent first, then the workers, then the short-link service host):
+Cloud: remove each deployed runtime by running the following from the same service directory you deployed it from (multimedia agent first, then the workers):
 
 ```bash
 uv run agentkit destroy
@@ -329,10 +324,6 @@ uv run agentkit destroy
 
 The agent LLMs never look at images directly — vision runs through dedicated tool-level model calls (the market agent's image understanding/filtering, and the evaluate agent's media scoring). So the agents use the text-only DeepSeek V4 Pro, while those tools default to the vision-capable Doubao Seed 2.1 Turbo (`MODEL_VISION_NAME` / `MODEL_EVALUATE_ITEM`).
 
-### A service crashes at import with "SHORTEN_URL_SERVICE_URL is not set"
-
-The director, evaluate, and release agents require the short-link service URL at import time. Make sure you copied `config.yaml.example` to `config.yaml` (it pre-fills `shorten_url_service_url: http://127.0.0.1:8005`) or exported `SHORTEN_URL_SERVICE_URL`.
-
 ### The market agent fails at startup with a Playwright error
 
 Run `uv run playwright install chromium`, and on Linux also `uv run playwright install-deps chromium` (the browser needs system libraries such as `libatk`).
@@ -343,8 +334,8 @@ It fetches the four workers' A2A agent cards at startup, so ports 8000-8003 must
 
 ### Where does the final video go?
 
-The release agent composes the video locally with moviepy and saves it under `merged_videos/` in the repository; the returned `video_url` points at that file. The intermediate storyboard images are uploaded to your TOS bucket and returned as short links.
+The release agent composes the video locally with moviepy and saves it under `merged_videos/` in the repository; the returned `video_url` points at that file. The intermediate storyboard images are uploaded to your TOS bucket and returned as full URLs.
 
 ### Which ports must be free?
 
-8000 (market), 8001 (director), 8002 (evaluate), 8003 (release), 8004 (multimedia), 8005 (short link).
+8000 (market), 8001 (director), 8002 (evaluate), 8003 (release), 8004 (multimedia).

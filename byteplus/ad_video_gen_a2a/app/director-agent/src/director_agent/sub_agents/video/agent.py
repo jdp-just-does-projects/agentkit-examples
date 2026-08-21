@@ -15,8 +15,6 @@
 from veadk import Agent
 from veadk.agents.sequential_agent import SequentialAgent
 
-from director_agent.hook.shorten_url import hook_shorten_url
-
 # from veadk.tools.builtin_tools.video_generate import video_generate
 # from director_agent.tools.video_generate_gather import video_generate
 from director_agent.tools.video_generate_http import video_generate
@@ -35,7 +33,7 @@ video_generate_agent = Agent(
     description="Generates storyboard videos from the storyboard script",
     instruction=PROMPT_VIDEO_AGENT,
     tools=[video_generate],
-    after_tool_callback=[raise_result_error, hook_shorten_url],
+    after_tool_callback=[raise_result_error],
     generate_content_config=max_output_tokens_config,
     model_extra_config={
         "extra_body": {"thinking": {"type": getenv("THINKING_VIDEO_AGENT", "enabled")}}

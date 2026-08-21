@@ -16,7 +16,6 @@ from veadk import Agent
 from veadk.agents.sequential_agent import SequentialAgent
 
 from director_agent.hook.check_and_raise import raise_result_error
-from director_agent.hook.shorten_url import hook_shorten_url
 from director_agent.tools.image_generate_gather import image_generate
 from director_agent.hook.format_hook import fix_output_format
 from director_agent.utils.types import (
@@ -32,7 +31,7 @@ image_generate_agent = Agent(
     description="Generates images for each shot from the storyboard script",
     instruction=PROMPT_IMAGE_AGENT,
     tools=[image_generate],
-    after_tool_callback=[raise_result_error, hook_shorten_url],
+    after_tool_callback=[raise_result_error],
     generate_content_config=max_output_tokens_config,
     model_extra_config={
         "extra_body": {"thinking": {"type": getenv("THINKING_IMAGE_AGENT", "enabled")}}

@@ -16,8 +16,6 @@ import asyncio
 import json
 import os
 from typing import Any
-import aiohttp
-import urllib.parse
 
 from json_repair import repair_json
 from openai import AsyncOpenAI
@@ -33,63 +31,9 @@ from evaluate_agent.prompt import PROMPT_EVALUATE_ITEM_AGENT
 evaluate_agent_instruction = PROMPT_EVALUATE_ITEM_AGENT
 logger = get_logger(__name__)
 
-# Short-link service configuration
-shorten_url_service_url = os.getenv("SHORTEN_URL_SERVICE_URL", None)
-assert shorten_url_service_url, (
-    "SHORTEN_URL_SERVICE_URL is not set. Set it in config.yaml "
-    "(shorten_url_service_url) or export it before starting the service."
-)
-
 # geval scores images and videos, so it needs a vision-capable model (the main
 # agent model, DeepSeek V4 Pro, is text-only).
 DEFAULT_EVALUATE_ITEM_MODEL_NAME = "dola-seed-2-1-turbo-260628"
-
-
-async def resolve_short_url(short_url: str) -> str:
-    """
-    Resolve a short link back to its original URL.
-
-    Args:
-        short_url: the short link URL
-
-    Returns:
-        The original URL, or the short link itself if resolution fails.
-    """
-    if not shorten_url_service_url:
-        return short_url
-
-    try:
-        # Extract the short code from the short link.
-        # Short link format: http://127.0.0.1:8005/t/AbC123 or http://127.0.0.1:8005/t/video/AbC123
-        parsed_url = urllib.parse.urlparse(short_url)
-        path_parts = parsed_url.path.strip("/").split("/")
-
-        if len(path_parts) >= 2 and path_parts[0] == "t":
-            # Call the short-link service redirect endpoint to get the original URL
-            async with aiohttp.ClientSession() as session:
-                # Use a GET request to fetch the original URL (the short-link service returns the original URL string directly)
-                async with session.get(short_url) as response:
-                    if response.status == 200:
-                        # The short-link service returns the original URL string directly
-                        original_url = await response.text()
-                        original_url = original_url.strip().strip('"')
-                        logger.debug(
-                            f"Successfully resolved short URL: {short_url} -> {original_url}"
-                        )
-                        return original_url
-                    else:
-                        logger.warning(
-                            f"Failed to resolve short URL: {short_url}, status: {response.status}"
-                        )
-                        return short_url
-        else:
-            logger.warning(f"Not a valid short URL format: {short_url}")
-            return short_url
-
-    except Exception as e:
-        logger.error(f"Error resolving short URL {short_url}: {e}")
-        # If resolution fails, return the original short link
-        return short_url
 
 
 async def repair_evaluate_input(
@@ -117,23 +61,13 @@ async def repair_evaluate_input(
             if len(reference_media.strip()) == 0:
                 continue
 
-            # If the short-link service is enabled, try to resolve the reference image URL
-            resolved_reference_url = reference_media
-            if shorten_url_service_url:
-                resolved_reference_url = await resolve_short_url(reference_media)
-
             reference_part = {
                 "type": "input_image",
-                "image_url": resolved_reference_url,
+                "image_url": reference_media,
             }  # References are always images
             reference_part_list.append(reference_part)
 
         for i, media_url in enumerate(media_url_list):
-            # If the short-link service is enabled, try to resolve the media URL
-            resolved_media_url = media_url
-            if shorten_url_service_url:
-                resolved_media_url = await resolve_short_url(media_url)
-
             text_part = {
                 "type": "input_text",
                 "text": (
@@ -145,7 +79,7 @@ async def repair_evaluate_input(
             }
 
             user_prompt = {"role": "user", "content": []}
-            media_part = {"type": MEDIA_TYPE_FIELD, MEDIA_URL_FIELD: resolved_media_url}
+            media_part = {"type": MEDIA_TYPE_FIELD, MEDIA_URL_FIELD: media_url}
             user_prompt["content"] = [text_part] + [media_part] + reference_part_list
 
             result.append(user_prompt)

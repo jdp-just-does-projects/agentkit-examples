@@ -28,63 +28,6 @@ from veadk.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-# Short link service configuration
-shorten_url_service_url = os.getenv("SHORTEN_URL_SERVICE_URL", None)
-assert shorten_url_service_url, (
-    "SHORTEN_URL_SERVICE_URL is not set. Set it in config.yaml "
-    "(shorten_url_service_url) or export it before starting the service."
-)
-
-
-async def resolve_short_url(short_url: str) -> str:
-    """
-    Resolve a short link back to its original URL
-
-    Args:
-        short_url: The short link URL
-
-    Returns:
-        The original URL; if resolution fails, the short link itself is returned
-    """
-    # Avoid printing the short link to the console; use structured logging instead
-    logger.debug("Resolving short URL")
-    if not shorten_url_service_url:
-        return short_url
-
-    try:
-        # Extract the short code from the short link
-        # Short link format: http://127.0.0.1:8005/t/AbC123 or http://127.0.0.1:8005/t/video/AbC123
-        parsed_url = urllib.parse.urlparse(short_url)
-        path_parts = parsed_url.path.strip("/").split("/")
-
-        if len(path_parts) >= 2 and path_parts[0] == "t":
-            # Call the short link service's redirect endpoint to get the original URL
-            async with aiohttp.ClientSession() as session:
-                # Use a GET request to fetch the original URL (the short link service returns the original URL string directly)
-                async with session.get(short_url) as response:
-                    if response.status == 200:
-                        # The short link service returns the original URL string directly
-                        original_url = await response.text()
-                        original_url = original_url.strip().strip('"')
-                        logger.debug(
-                            f"Successfully resolved short URL: {short_url} -> {original_url}"
-                        )
-                        return original_url
-                    else:
-                        logger.warning(
-                            f"Failed to resolve short URL: {short_url}, status: {response.status}"
-                        )
-                        return short_url
-        else:
-            logger.warning(f"Not a valid short URL format: {short_url}")
-            return short_url
-
-    except Exception as e:
-        logger.error(f"Error resolving short URL {short_url}: {e}")
-        # If resolution fails, return the original short link
-        return short_url
-
-
 async def video_combine(video_urls: List[str]) -> Optional[str]:
     """
     Merge multiple video URLs into a single video file
@@ -108,26 +51,24 @@ async def video_combine(video_urls: List[str]) -> Optional[str]:
     temp_dir = tempfile.mkdtemp(dir=output_dir)
     logger.info(f"Created temporary directory: {temp_dir}")
 
-    # Resolve short links
-    resolved_urls = []
+    # Only allow http/https schemes to reduce SSRF risk
+    valid_urls = []
     for url in video_urls:
-        resolved_url = await resolve_short_url(url)
-        # Only allow http/https schemes to reduce SSRF risk
-        parsed = urllib.parse.urlparse(resolved_url)
+        parsed = urllib.parse.urlparse(url)
         if parsed.scheme not in {"http", "https"}:
-            logger.warning(f"Skip non-http(s) URL: {resolved_url}")
+            logger.warning(f"Skip non-http(s) URL: {url}")
             continue
-        resolved_urls.append(resolved_url)
+        valid_urls.append(url)
 
     # Download the video files
     downloaded_files = []
 
     async with aiohttp.ClientSession() as session:
-        for idx, url in enumerate(resolved_urls):
+        for idx, url in enumerate(valid_urls):
             try:
                 # Download the video
                 logger.info(
-                    f"Downloading video {idx + 1}/{len(resolved_urls)} from {url}"
+                    f"Downloading video {idx + 1}/{len(valid_urls)} from {url}"
                 )
 
                 async with session.get(url, allow_redirects=True) as response:

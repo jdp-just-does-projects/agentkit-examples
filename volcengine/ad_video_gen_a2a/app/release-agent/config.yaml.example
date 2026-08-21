@@ -9,8 +9,6 @@ model:
     # Formatting is text-only; point this at a cheaper model if you have one enabled
     name: deepseek-v4-pro-260425
 
-
-shorten_url_service_url: http://127.0.0.1:8005
 volcengine:
   # Local composition is the default; only needed when switching to
   # cloud-based (VOD) video composition
@@ -24,7 +22,6 @@ tools:
     space_name:
     task_polling_interval: 20
     max_retries: 60
-
 
 logging:
   # ERROR

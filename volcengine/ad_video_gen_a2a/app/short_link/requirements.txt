@@ -1,8 +1,0 @@
-fastapi==0.141.1
-uvicorn[standard]==0.52.3
-python-dotenv==1.2.2
-
-# Optional Redis backend
-# Uncomment the line below to store short links in Redis instead of the
-# in-memory dict (set SHORT_LINK_MODE=redis and the REDIS_* variables):
-# redis>=4.0.0
