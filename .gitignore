@@ -234,6 +234,7 @@ retry_task_ids.json
 # Generated run output (scripts, storyboards, images, videos) — can be very large
 output/
 my-comic-drama/
+merged_videos/
 
 # ad_video_gen_a2a E2E driver output
 tmp-json/
