@@ -25,10 +25,20 @@ characters of high-entropy query string:
     ...&X-Tos-Signature=<64 hex chars>&X-Tos-SignedHeaders=host
 
 Token by token that is exactly the kind of text a language model reproduces
-*almost* perfectly. In practice one URL in a run comes back with a duplicated
-or dropped character somewhere in the signature, e.g. a 65-character
-``X-Tos-Signature``. The URL still looks completely plausible, so nothing
-downstream notices until ModelArk tries to fetch it and answers
+*almost* perfectly. In practice one URL in a run comes back wrong. Sometimes it
+is a single duplicated or dropped character in the signature, e.g. a
+65-character ``X-Tos-Signature``. Sometimes the model loses its place and
+re-emits a whole chunk of it::
+
+    ...&X-Tos-SignedHeaders=hosgnature=<the 64 hex chars again>&X-Tos-SignedHeaders=host
+
+That second kind also breaks the arguments JSON around it, and the json-repair
+fallback in ``workarounds.py`` salvages the call by swallowing the rest of the
+payload into the string, so the field arrives as
+``<url>"}]}], "media_type": "image"}``.
+
+Either way the URL still looks completely plausible, so nothing downstream
+notices until ModelArk tries to fetch it and answers
 
     400 InvalidParameter - Error while downloading: <url>, status code: 403
 
@@ -44,11 +54,15 @@ URLs this session has seen from sources the model cannot have mistyped:
 * the payload of every ``function_response`` (raw tool output), and
 * the text of every ``user`` message (what the caller handed this service).
 
-An exact match is left alone. Anything else is fuzzy-matched against that
-authoritative set; when one candidate is a clear, near-identical winner on the
-same host, the model's version is replaced with it. A URL with no close match
-(a product link the user typed, a page the search tool found) is left
-untouched, so the guard only ever undoes corruption it can prove.
+An exact match is left alone. Anything else is matched against that
+authoritative set two ways: by object path, because a pre-signed URL's query
+string is credentials rather than meaning and a single known URL for the same
+object is the one the model meant however badly it mangled the signature; and
+failing that by similarity, so corruption of the path itself is caught too. A
+URL with no close match (a product link the user typed, a page the search tool
+found) is left untouched, so the guard only ever undoes corruption it can
+prove. Fields that hold a URL and nothing else are additionally cut back to the
+URL, which removes the payload json-repair swallowed into them.
 
 Both the visible text and the arguments of any ``function_call`` are repaired
 — a mistyped URL passed *into* the next tool (the first frame handed to video
@@ -79,16 +93,46 @@ logger = get_logger(__name__)
 _URL_RE = re.compile(r"https?://[^\s\"'<>\\`\]}),]+")
 
 # How similar a model-written URL must be to an authoritative one before we
-# treat it as a corrupted copy of it rather than a different URL. Real
-# corruption is a character or two out of ~500, i.e. a ratio of ~0.998; two
-# genuinely different pre-signed URLs for the same bucket still share their
-# host and parameter names, which is why the bar has to be this high.
-_MATCH_THRESHOLD = 0.97
+# treat it as a corrupted copy of it rather than a different URL. Corruption is
+# not always a single character: a model that loses its place while writing the
+# arguments JSON re-emits a whole chunk of the signature, which puts a copy ~90%
+# similar to its original. Two genuinely different pre-signed URLs from the same
+# bucket sit around 0.71 (same host, same parameter names, different object id
+# and signature), so this is well clear of them.
+_MATCH_THRESHOLD = 0.85
 
 # The winner must also beat the runner-up by this margin, so that a URL which
 # is nearly equidistant from two candidates is left alone instead of being
 # snapped to an arbitrary one of them.
-_MATCH_MARGIN = 0.005
+_MATCH_MARGIN = 0.01
+
+# A query string containing one of these is credentials, not meaning: two URLs
+# with the same path and a signed query address the same object, whatever the
+# model did to the signature. Matching on the path alone catches corruption of
+# any size, which the similarity test cannot.
+_SIGNED_QUERY_MARKERS = ("signature", "x-tos-", "x-amz-", "x-obs-", "expires=")
+
+# Argument fields that hold one URL and nothing else. When a model breaks the
+# arguments JSON around such a field, json-repair (see workarounds.py) salvages
+# it by swallowing the rest of the payload into the string - the field comes out
+# as `<url>"}]}], "media_type": "image"}`. Repairing the URL inside that string
+# is not enough; the field has to be cut back to the URL itself.
+_URL_ONLY_FIELDS = frozenset(
+    {
+        "url",
+        "image_url",
+        "video_url",
+        "audio_url",
+        "media_url",
+        "reference",
+        "reference_image",
+        "reference_url",
+        "first_frame_image",
+        "last_frame_image",
+        "image",
+        "video",
+    }
+)
 
 
 def _trim(url: str) -> str:
@@ -103,6 +147,19 @@ def _extract_urls(text: str) -> list[str]:
 def _host(url: str) -> str:
     # Cheaper and more forgiving than urlparse on a possibly mangled URL.
     return url.split("//", 1)[-1].split("/", 1)[0]
+
+
+def _object_path(url: str) -> str:
+    """Everything before the query string - which object the URL points at."""
+    return url.split("?", 1)[0]
+
+
+def _is_signed(url: str) -> bool:
+    """Whether the URL's query string is a signature rather than parameters."""
+    if "?" not in url:
+        return False
+    query = url.split("?", 1)[1].lower()
+    return any(marker in query for marker in _SIGNED_QUERY_MARKERS)
 
 
 def _authoritative_urls(callback_context: CallbackContext) -> set[str]:
@@ -144,13 +201,28 @@ def _stringify(value: Any) -> str:
 def _best_match(url: str, candidates: Iterable[str]) -> Optional[str]:
     """The authoritative URL that ``url`` is a corrupted copy of, if any."""
     host = _host(url)
+    same_host = [candidate for candidate in candidates if _host(candidate) == host]
+    if not same_host:
+        return None
+
+    # First try the object path. A pre-signed URL is `<object>?<credentials>`,
+    # and the credentials carry nothing the model gets to choose - so a single
+    # authoritative URL for the same object *is* the URL the model meant, no
+    # matter how badly it mangled the query string. This is what catches the
+    # duplicated-signature corruption that is too far off for the ratio test.
+    same_object = [
+        candidate
+        for candidate in same_host
+        if _is_signed(candidate) and _object_path(candidate) == _object_path(url)
+    ]
+    if len(same_object) == 1:
+        return same_object[0]
+
     scored: list[tuple[float, str]] = []
-    for candidate in candidates:
-        if _host(candidate) != host:
-            continue
-        # A corruption is a handful of characters; anything further apart in
-        # length is a different URL, and comparing it is wasted work.
-        if abs(len(candidate) - len(url)) > 8:
+    for candidate in same_host:
+        # Corruption duplicates or drops part of a URL; something half as long
+        # again is a different URL, and comparing it is wasted work.
+        if abs(len(candidate) - len(url)) > max(64, len(candidate) // 2):
             continue
         ratio = difflib.SequenceMatcher(None, url, candidate).ratio()
         if ratio >= _MATCH_THRESHOLD:
@@ -180,32 +252,73 @@ def _repair_text(text: str, authoritative: set[str], agent_name: str) -> tuple[s
             continue
         text = text.replace(written, correct)
         repairs += 1
+        # Report where they diverge, not the tails: the corruption is usually
+        # mid-signature, and two tails printed side by side look identical.
+        offset = next(
+            (i for i, (a, b) in enumerate(zip(written, correct)) if a != b),
+            min(len(written), len(correct)),
+        )
         logger.warning(
             "[url_guard] %s mistyped a URL; restored it from the authoritative "
-            "value (wrote ...%s, should be ...%s)",
+            "value (wrote %d chars, expected %d; diverges at offset %d: %r -> %r)",
             agent_name,
-            written[-48:],
-            correct[-48:],
+            len(written),
+            len(correct),
+            offset,
+            written[offset : offset + 40],
+            correct[offset : offset + 40],
         )
     return text, repairs
 
 
-def _repair_args(value: Any, authoritative: set[str], agent_name: str) -> tuple[Any, int]:
+def _isolate_url(value: str, authoritative: set[str], agent_name: str, field: str) -> tuple[str, int]:
+    """Cut a URL-only field back to the URL it is supposed to hold.
+
+    Only ever trims around a URL that is already known-good, so a field holding
+    something this guard cannot vouch for is left exactly as the model wrote it.
+    """
+    stripped = value.strip()
+    for url in _extract_urls(stripped):
+        if url not in authoritative:
+            continue
+        if stripped == url:
+            return value, 0
+        logger.warning(
+            "[url_guard] %s wrote %d characters of stray text around the URL in "
+            "`%s`; cut it back to the URL (dropped %r)",
+            agent_name,
+            len(stripped) - len(url),
+            field,
+            stripped.replace(url, "", 1)[:80],
+        )
+        return url, 1
+    return value, 0
+
+
+def _repair_args(
+    value: Any, authoritative: set[str], agent_name: str, field: str = ""
+) -> tuple[Any, int]:
     """Walk a function call's arguments, repairing every string in place."""
     if isinstance(value, str):
         if "http" not in value:
             return value, 0
-        return _repair_text(value, authoritative, agent_name)
+        text, repairs = _repair_text(value, authoritative, agent_name)
+        if field in _URL_ONLY_FIELDS:
+            text, trimmed = _isolate_url(text, authoritative, agent_name, field)
+            repairs += trimmed
+        return text, repairs
     if isinstance(value, dict):
         repairs = 0
         for key, item in value.items():
-            value[key], fixed = _repair_args(item, authoritative, agent_name)
+            value[key], fixed = _repair_args(item, authoritative, agent_name, key)
             repairs += fixed
         return value, repairs
     if isinstance(value, list):
         repairs = 0
         for index, item in enumerate(value):
-            value[index], fixed = _repair_args(item, authoritative, agent_name)
+            # A list inherits its field name: `"reference": [url, url]` holds
+            # URL-only strings just as `"reference": url` does.
+            value[index], fixed = _repair_args(item, authoritative, agent_name, field)
             repairs += fixed
         return value, repairs
     return value, 0

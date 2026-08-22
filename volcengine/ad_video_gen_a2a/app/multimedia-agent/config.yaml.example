@@ -3,7 +3,13 @@ model:
     provider: openai
     name: deepseek-v4-pro-260425
     api_base: https://ark.cn-beijing.volces.com/api/v3/
-    api_key:
+    # Required, but usually supplied as MODEL_AGENT_API_KEY through `.env` or
+    # the shell, which wins over config.yaml. Set it here only if you prefer to
+    # keep it in this file - and never leave the key present but blank: veadk
+    # exports every config.yaml key it reads, and a blank value becomes the
+    # literal string "None", which is then sent as the API key (a 401 instead
+    # of veadk's clear "not set" error).
+    # api_key: <your model API key>
 
 logging:
   # ERROR

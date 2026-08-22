@@ -266,7 +266,13 @@ uv pip install agentkit-sdk-python
 
 **Step 1:** Deploy the four workers, one at a time, from each service's `src/` directory.
 
-**Note**: We assume here that `MODEL_AGENT_API_KEY`, `VOLCENGINE_ACCESS_KEY`, `VOLCENGINE_SECRET_KEY`, and `DATABASE_TOS_BUCKET` are defined in your shell environment.
+**Note**: We assume here that `MODEL_AGENT_API_KEY`, `VOLCENGINE_ACCESS_KEY`, `VOLCENGINE_SECRET_KEY`, and `DATABASE_TOS_BUCKET` are defined in your shell environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first, from the project root (`ad_video_gen_a2a`), before changing into each service's `src/` directory:
+
+```bash
+set -a && source ./.env && set +a
+```
+
+This also exports `VOLCENGINE_ACCESS_KEY` and `VOLCENGINE_SECRET_KEY`, which the CLI needs in order to authenticate with Volcano Engine during `agentkit config` and `agentkit launch`.
 
 For example, for the director agent:
 

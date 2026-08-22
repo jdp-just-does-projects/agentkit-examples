@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import asyncio
+import hashlib
 import json
+import re
 import traceback
 from typing import Dict
 import aiohttp
@@ -30,6 +32,95 @@ from veadk.version import VERSION
 logger = get_logger(__name__)
 
 
+# Seedance rejects an explicit aspect ratio on a frame-guided clip: for
+# first-frame (or first+last-frame) generation the output ratio follows the
+# first-frame image, so the only value the API accepts is `adaptive`. Anything
+# else comes back as `InvalidParameter.TaskTypeConstraint`, the task fails, and
+# the agent - which is told only that the video count is short - retries the
+# same prompt forever. The aspect ratio is a text command the model writes into
+# the prompt, so normalize it here instead of relying on every prompt being
+# right.
+_RATIO_COMMAND_RE = re.compile(r"--(?:rt|ratio)(?:\s+|=)\S+")
+
+
+def _force_adaptive_ratio(prompt: str) -> str:
+    """Force `--rt adaptive` on prompts for first/last-frame guided clips."""
+    if _RATIO_COMMAND_RE.search(prompt):
+        fixed = _RATIO_COMMAND_RE.sub("--rt adaptive", prompt)
+        if fixed != prompt:
+            logger.debug(
+                "Rewrote the aspect-ratio text command to `--rt adaptive`: a "
+                "frame-guided clip inherits its ratio from the first frame."
+            )
+        return fixed
+    return f"{prompt.rstrip()} --rt adaptive"
+
+
+# Ark answers a rejected request with an error code in the response body, and
+# some of those codes are verdicts on *what the request contains* rather than on
+# how it was written. The one this pipeline hits routinely is
+# `InputImageSensitiveContentDetected.PrivacyInformation` - "the input image may
+# contain real person" - because the image stage happily draws photorealistic
+# faces that the video stage then refuses as a likeness risk. No edit to the
+# request body fixes that, so resubmitting can only fail the same way; the
+# caller has to change the content or give up. Everything else (a bad parameter,
+# a transient 5xx) stays retryable.
+_TERMINAL_ERROR_CODE_PREFIXES = (
+    "InputImageSensitiveContentDetected",
+    "InputTextSensitiveContentDetected",
+    "OutputImageSensitiveContentDetected",
+    "OutputVideoSensitiveContentDetected",
+    "SensitiveContentDetected",
+)
+
+
+class VideoTaskError(Exception):
+    """An Ark failure that carries the code and message the API actually sent.
+
+    `aiohttp`'s `raise_for_status()` throws the response body away, so the only
+    thing that used to reach the agent was ``400, message='Bad Request',
+    url=...``. That names no cause, which left the model nothing to act on but a
+    verbatim resubmit of the same doomed parameters.
+    """
+
+    def __init__(self, code: str, message: str, status: int | None = None):
+        self.code = code
+        self.message = message
+        self.status = status
+        self.terminal = any(
+            code.startswith(prefix) for prefix in _TERMINAL_ERROR_CODE_PREFIXES
+        )
+        detail = f"{code}: {message}" if code else message
+        super().__init__(f"HTTP {status} {detail}" if status else detail)
+
+
+def _error_from_payload(payload: object, status: int | None = None) -> VideoTaskError:
+    """Build a `VideoTaskError` from an Ark ``{"error": {...}}`` payload."""
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if isinstance(error, dict):
+        return VideoTaskError(
+            str(error.get("code") or ""), str(error.get("message") or ""), status
+        )
+    return VideoTaskError("", str(error if error is not None else payload), status)
+
+
+def _error_from_body(body: str, status: int) -> VideoTaskError:
+    """Build a `VideoTaskError` from a raw HTTP body, which may not be JSON."""
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        return VideoTaskError("", (body or "").strip()[:1000], status)
+    return _error_from_payload(payload, status)
+
+
+def _rejection_key(prompt: str, first_frame, last_frame) -> str:
+    """Session-state key identifying one exact generation request."""
+    digest = hashlib.sha256(
+        json.dumps([prompt, first_frame, last_frame], ensure_ascii=False).encode()
+    ).hexdigest()[:32]
+    return f"_video_generate_rejected_{digest}"
+
+
 async def generate(prompt, first_frame_image=None, last_frame_image=None):
     """
     Generate a video using HTTP requests
@@ -41,6 +132,9 @@ async def generate(prompt, first_frame_image=None, last_frame_image=None):
     model = getenv("MODEL_VIDEO_NAME", DEFAULT_VIDEO_MODEL_NAME)
 
     # Build the content array
+    if first_frame_image or last_frame_image:
+        prompt = _force_adaptive_ratio(prompt)
+
     prompt_with_media = (
         "(Very light incidental action sounds are allowed, but no human voice, "
         "no background music, no sound effects, no narration, no commentary.) "
@@ -93,9 +187,13 @@ async def generate(prompt, first_frame_image=None, last_frame_image=None):
                 json=request_body,
                 headers=headers,
             ) as response:
-                response.raise_for_status()
-                response_json = await response.json()
-                return response_json
+                # Read the body before deciding what to do with the
+                # status: `raise_for_status()` discards it, and the body is the
+                # only place the API says *why* it rejected the request.
+                body = await response.text()
+                if response.status >= 400:
+                    raise _error_from_body(body, response.status)
+                return json.loads(body)
         except Exception:
             logger.error(f"Error in generate: {traceback.format_exc()}")
             raise
@@ -155,6 +253,12 @@ async def video_generate(
         --rt / --ratio <value>            Aspect ratio. Typical: 16:9 (default), 9:16, 4:3, 3:4, 1:1, 2:1, 21:9.
                                           Some models support `keep_ratio` (keep source image ratio) or `adaptive`
                                           (auto choose suitable ratio).
+                                          IMPORTANT: when `first_frame` (or `first_frame` + `last_frame`) is given,
+                                          the output ratio follows the first-frame image and the API accepts only
+                                          `--rt adaptive` - any other value fails the task with
+                                          `InvalidParameter.TaskTypeConstraint`. This tool rewrites the command to
+                                          `--rt adaptive` for you in that case, so choose the clip's aspect ratio
+                                          when you generate the first-frame image, not here.
 
         --dur / --duration <seconds>      Clip length in seconds. Seedance 2.5 supports **4–30 s** (default 5).
                                           When clips will be stitched into a longer final video, prefer
@@ -176,8 +280,15 @@ async def video_generate(
             {
                 "status": "success",
                 "success_list": [{"video_name": "video_url"}],
-                "error_list": []
+                "error_list": [],
+                "errors": {"video_name": "why this one failed"},
+                "permanent_failures": ["video_name"]
             }
+
+            `permanent_failures` lists the items the API rejected for their
+            content (a moderation verdict on the prompt or the first frame).
+            Those cannot be produced from the parameters given, so do not
+            resubmit them unchanged - change the content or drop them.
 
     Constraints & Tips:
         - Keep the prompt concise and focused (recommended ≤ 500 words); too many details may distract the model.
@@ -210,6 +321,8 @@ async def video_generate(
     """
     success_list = []
     error_list = []
+    errors: Dict[str, str] = {}  # video_name -> why it failed, surfaced to the agent
+    permanent_failures: list[str] = []  # rejected on content: retrying cannot help
     api_key = getenv(
         "MODEL_VIDEO_API_KEY", getenv("MODEL_AGENT_API_KEY", settings.model.api_key)
     )
@@ -224,6 +337,7 @@ async def video_generate(
         logger.debug(f"video_generate batch {start_idx // batch_size}: {batch}")
 
         task_dict = {}  # task_id: video_name
+        task_keys = {}  # task_id: rejection key, to record a terminal failure
         tracer = trace.get_tracer("gcp.vertex.agent")
         with tracer.start_as_current_span("call_llm") as span:
             input_part = {"role": "user"}
@@ -239,15 +353,36 @@ async def video_generate(
                 first_frame = item.get("first_frame", None)
                 last_frame = item.get("last_frame", None)
 
+                # A content rejection is a property of the request itself, so
+                # a repeat of one already refused in this session cannot
+                # succeed. Answer it from the record rather than paying for the
+                # round trip - and the polling wait behind it - all over again.
+                rejection_key = _rejection_key(prompt, first_frame, last_frame)
+                previous = tool_context.state.get(rejection_key)
+                if previous:
+                    logger.warning(
+                        f"Skipping {video_name}: this exact request was already "
+                        f"rejected in this session ({previous})"
+                    )
+                    error_list.append(video_name)
+                    errors[video_name] = str(previous)
+                    permanent_failures.append(video_name)
+                    continue
+
                 try:
                     # Create video generation task
                     response = await generate(prompt, first_frame, last_frame)
                     task_id = response["id"]
                     task_dict[task_id] = video_name
+                    task_keys[task_id] = rejection_key
                     logger.debug(f"Created task {task_id} for video {video_name}")
                 except Exception as e:
                     logger.error(f"Error creating task for {video_name}: {e}")
                     error_list.append(video_name)
+                    errors[video_name] = str(e)
+                    if isinstance(e, VideoTaskError) and e.terminal:
+                        permanent_failures.append(video_name)
+                        tool_context.state[rejection_key] = str(e)
                     continue
 
             logger.debug("Begin querying video_generate task status...")
@@ -295,11 +430,17 @@ async def video_generate(
 
                                 elif status == "failed":
                                     video_name = task_dict[task_id]
-                                    error_msg = result["error"]
+                                    failure = _error_from_payload(result)
                                     logger.error(
-                                        f"{video_name} video_generate failed. Error: {error_msg}"
+                                        f"{video_name} video_generate failed. Error: {failure}"
                                     )
                                     error_list.append(video_name)
+                                    errors[video_name] = str(failure)
+                                    if failure.terminal:
+                                        permanent_failures.append(video_name)
+                                        tool_context.state[task_keys[task_id]] = str(
+                                            failure
+                                        )
                                     task_dict.pop(task_id, None)
 
                                 else:
@@ -335,6 +476,8 @@ async def video_generate(
             "status": "error",
             "success_list": success_list,
             "error_list": error_list,
+            "errors": errors,
+            "permanent_failures": permanent_failures,
         }
     else:
         logger.debug(
@@ -344,6 +487,8 @@ async def video_generate(
             "status": "success",
             "success_list": success_list,
             "error_list": error_list,
+            "errors": errors,
+            "permanent_failures": permanent_failures,
         }
 
 

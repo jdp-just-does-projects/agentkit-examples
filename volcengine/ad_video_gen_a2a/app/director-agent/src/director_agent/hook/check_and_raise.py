@@ -26,6 +26,62 @@ def error_status(tool_name: str, reason: str) -> dict:
     return {"status": {"success": False, "message": f"{tool_name} Error: {reason}"}}
 
 
+# Without the underlying API error the model only learns that the item count is
+# short, so its only move is to resubmit the very same parameters - which fails
+# the same way, forever. Hand it the per-item reason plus an explicit
+# instruction to change something or give up.
+RETRY_HINT = (
+    " Do NOT resubmit the same parameters unchanged: fix the cause reported "
+    "above first. If the cause is not something you can fix by editing the "
+    "request, stop retrying and report the failure in the status field."
+)
+
+# Some failures are a verdict on what the request *contains* - a moderation
+# rejection of the prompt or of the first-frame image - rather than on how it
+# was written. Nothing the model can edit turns those into a success, so telling
+# it to "fix the cause" only sends it round the same loop. Name them and say
+# plainly that the content has to change or the item has to go.
+PERMANENT_HINT = (
+    " {names} {verb} rejected for what the request contains - its prompt or its "
+    "first-frame image - not for how it was written, so resubmitting cannot "
+    "succeed however the parameters are edited. Either change the "
+    "content itself (a different first frame, a reworded prompt) or leave those "
+    "items out and report the failure in the status field."
+)
+
+
+def retry_hint(tool_response: dict) -> str:
+    """Tell the model whether resubmitting could possibly help."""
+    permanent = [str(name) for name in (tool_response.get("permanent_failures") or [])]
+    if not permanent:
+        return RETRY_HINT
+
+    hint = PERMANENT_HINT.format(
+        names=", ".join(permanent), verb="was" if len(permanent) == 1 else "were"
+    )
+    # Anything that failed for some other reason may still be worth one retry.
+    if len(permanent) < len(tool_response.get("error_list") or []):
+        hint += RETRY_HINT
+    return hint
+
+
+def failure_detail(tool_response: dict) -> str:
+    """Render the per-item failure reasons the tool reported, if any."""
+    errors = tool_response.get("errors") or {}
+    if isinstance(errors, dict) and errors:
+        # De-duplicate: a whole batch usually fails for one and the same reason.
+        by_reason: dict[str, list[str]] = {}
+        for name, reason in errors.items():
+            by_reason.setdefault(str(reason), []).append(str(name))
+        lines = [f"{', '.join(names)}: {reason}" for reason, names in by_reason.items()]
+        return " Reported failures - " + "; ".join(lines) + "."
+
+    failed = tool_response.get("error_list") or []
+    if failed:
+        return f" Failed items: {failed}."
+    return ""
+
+
 def raise_result_error(
     tool: BaseTool, args: dict[str, Any], tool_context: ToolContext, tool_response: Any
 ) -> Optional[Any]:
@@ -65,7 +121,11 @@ def raise_result_error(
                 actual_images = len(success_list)
 
                 if actual_images != total_expected_images:
-                    reason = f"The total number of generated images ({actual_images}) does not match the expected count ({total_expected_images})."
+                    reason = (
+                        f"The total number of generated images ({actual_images}) does not match the expected count ({total_expected_images})."
+                        + failure_detail(tool_response)
+                        + retry_hint(tool_response)
+                    )
                     logger.warning(reason)
                     return error_status(tool.name, reason)
             else:
@@ -91,7 +151,11 @@ def raise_result_error(
                 actual_videos = len(success_list)
 
                 if actual_videos != total_expected_videos:
-                    reason = f"The total number of generated videos ({actual_videos}) does not match the expected count ({total_expected_videos})."
+                    reason = (
+                        f"The total number of generated videos ({actual_videos}) does not match the expected count ({total_expected_videos})."
+                        + failure_detail(tool_response)
+                        + retry_hint(tool_response)
+                    )
                     logger.warning(reason)
                     return error_status(tool.name, reason)
             else:

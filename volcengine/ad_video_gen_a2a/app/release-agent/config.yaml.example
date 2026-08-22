@@ -4,24 +4,36 @@ model:
     # name: doubao-seed-2-1-turbo-260628 # vision-capable alternative
     name: deepseek-v4-pro-260425
     api_base: https://ark.cn-beijing.volces.com/api/v3/
-    api_key:
+    # Required, but usually supplied as MODEL_AGENT_API_KEY through `.env` or
+    # the shell, which wins over config.yaml. Set it here only if you prefer to
+    # keep it in this file - and never leave the key present but blank: veadk
+    # exports every config.yaml key it reads, and a blank value becomes the
+    # literal string "None", which is then sent as the API key (a 401 instead
+    # of veadk's clear "not set" error).
+    # api_key: <your model API key>
   format:
     # Formatting is text-only; point this at a cheaper model if you have one enabled
     name: deepseek-v4-pro-260425
 
-volcengine:
-  # Local composition is the default; only needed when switching to
-  # cloud-based (VOD) video composition
-  access_key:
-  secret_key:
+# Local composition is the default; the credentials and the `tools.vod` block
+# below are only needed when switching to cloud-based (VOD) video composition.
+# Leave the whole block commented out rather than present with blank values -
+# veadk exports every config.yaml key it reads, and a blank value is exported
+# as the literal string "None" rather than staying unset, so callers receive
+# "None" instead of an absent variable. A value in `.env` or the shell still
+# wins over config.yaml, so this only bites when the key is set nowhere else.
+# volcengine:
+#   access_key: <your access key>
+#   secret_key: <your secret key>
 
-tools:
-  # Local composition is the default; only needed when switching to
-  # cloud-based (VOD) video composition
-  vod:
-    space_name:
-    task_polling_interval: 20
-    max_retries: 60
+# tools:
+#   vod:
+#     # Blank here would reach the tool as the string "None" and be sent as the
+#     # VOD SpaceName, defeating the os.getenv("TOOLS_VOD_SPACE_NAME", None)
+#     # default in video_combine_vod.py.
+#     space_name: <your VOD space name>
+#     task_polling_interval: 20
+#     max_retries: 60
 
 logging:
   # ERROR

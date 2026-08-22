@@ -4,15 +4,27 @@ model:
     # name: doubao-seed-2-1-turbo-260628 # vision-capable alternative
     name: deepseek-v4-pro-260425
     api_base: https://ark.cn-beijing.volces.com/api/v3/
-    api_key:
+    # Required, but usually supplied as MODEL_AGENT_API_KEY through `.env` or
+    # the shell, which wins over config.yaml. Set it here only if you prefer to
+    # keep it in this file - and never leave the key present but blank: veadk
+    # exports every config.yaml key it reads, and a blank value becomes the
+    # literal string "None", which is then sent as the API key (a 401 instead
+    # of veadk's clear "not set" error).
+    # api_key: <your model API key>
   video:
     name: doubao-seedance-2-5-260628
     api_base: https://ark.cn-beijing.volces.com/api/v3/
-    api_key:
+    # Only set this if the video model needs a different key than the agent
+    # model; the tools fall back to MODEL_AGENT_API_KEY when it is absent.
+    # Leave the line out rather than blank - veadk exports every config.yaml
+    # key it reads, and a blank value is exported as the string "None", which
+    # the Ark client then sends as the API key (401 AuthenticationError).
+    # api_key: <your video model API key>
   image:
     name: doubao-seedream-5-0-pro-260628
     api_base: https://ark.cn-beijing.volces.com/api/v3/
-    api_key:
+    # Same as above: omit unless the image model needs its own key.
+    # api_key: <your image model API key>
   format:
     # Formatting is text-only; point this at a cheaper model if you have one enabled
     name: deepseek-v4-pro-260425

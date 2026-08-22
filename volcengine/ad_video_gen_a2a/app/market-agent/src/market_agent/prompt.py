@@ -108,6 +108,7 @@ Notice:
         "name": str, product name
         "selling_point": str, product selling points
         "resources": list[str] product asset images (URLs)
+        "audience": str, the product's target audience
     },
     "video_advice": str, video recommendations
     "status": {

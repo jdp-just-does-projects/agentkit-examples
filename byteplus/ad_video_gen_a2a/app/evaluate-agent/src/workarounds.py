@@ -293,3 +293,124 @@ _lite_llm._to_litellm_response_format = (
 )
 
 #### END OF WORKAROUND
+
+#### Start of workaround
+
+# Every request logged a wall of
+#   ERROR:opentelemetry.context:Failed to detach context
+#   ValueError: <Token ...> was created in a different Context
+# with a GeneratorExit traceback pointing into google/adk/flows/llm_flows/
+# base_llm_flow.py. The runs still produced correct output, but the noise
+# buried the real logs.
+#
+# Cause: an async generator does *not* close the iterator it is looping over
+# when the loop exits early. ADK is careful about this and wraps every such
+# loop in `Aclosing`, but two veadk passthrough generators use a bare
+# `async for`:
+#
+#   veadk/agent.py       Agent._run_async_impl -> super()._run_async_impl(ctx)
+#   veadk/runner.py      intercept_new_message's wrapper -> ADK Runner.run_async
+#
+# When the consumer stops early - which ADK does routinely, e.g. it breaks out
+# of the flow loop right after `transfer_to_agent` - GeneratorExit is thrown
+# into the veadk generator and its frame dies, dropping the last reference to
+# the inner ADK generator without closing it. Python then finalizes that
+# orphan through asyncio's async-generator hook, which runs `aclose()` in a
+# brand-new task with a *fresh* contextvars Context. The OpenTelemetry spans
+# ADK holds open across those yields try to `detach()` tokens that were
+# attached in the original task's Context, and `ContextVar.reset` rejects
+# them.
+#
+# Closing the inner generator deterministically, while still on the consuming
+# task, fixes it at the source: the spans detach in the Context that attached
+# them. Verified against google-adk 2.2.0 / veadk-python 1.1.2 with a mock
+# model: a run that transfers to a sub-agent emits 4 of these errors before
+# the patch and 0 after, with identical events and final output. Drop this
+# block once veadk wraps both loops in `Aclosing` itself (it already does in
+# veadk/a2a/remote_ve_agent.py).
+
+import contextvars  # noqa: E402
+import functools  # noqa: E402
+
+import veadk.agent as _veadk_agent  # noqa: E402
+import veadk.runner as _veadk_runner  # noqa: E402
+from google.adk.utils.context_utils import Aclosing  # noqa: E402
+
+
+async def _run_async_impl_closing(self, ctx):
+    # Mirrors veadk.agent.Agent._run_async_impl, with `Aclosing` added.
+    if self.runtime == "adk":
+        async with Aclosing(
+            super(_veadk_agent.Agent, self)._run_async_impl(ctx)
+        ) as agen:
+            async for event in agen:
+                yield event
+        return
+
+    from veadk.runtime import get_runtime
+
+    async with Aclosing(get_runtime(self.runtime).run_async(self, ctx)) as agen:
+        async for event in agen:
+            yield event
+
+
+_veadk_agent.Agent._run_async_impl = _run_async_impl_closing
+
+
+# The runner-side loop is buried inside a closure built by
+# `intercept_new_message`, and its body also carries veadk's event logging.
+# Rather than copy that logging (and let it drift on the next upgrade), keep
+# veadk's wrapper as-is and hand it a `func` that records the generator it
+# creates, so the outer wrapper can close it on the consuming task.
+_inner_run_async_agens = contextvars.ContextVar(
+    "veadk_runner_inner_agens", default=None
+)
+_original_intercept_new_message = _veadk_runner.intercept_new_message
+
+
+def _intercept_new_message_with_closing(process_func):
+    original_decorator = _original_intercept_new_message(process_func)
+
+    def decorator(func):
+        # `wraps` so the patched `run_async` keeps its original identity for
+        # anything that introspects it.
+        @functools.wraps(func)
+        def _tracking_func(**kwargs):
+            agen = func(**kwargs)
+            box = _inner_run_async_agens.get()
+            if box is not None:
+                box.append(agen)
+            return agen
+
+        veadk_wrapper = original_decorator(_tracking_func)
+
+        @functools.wraps(veadk_wrapper)
+        async def wrapper(self, **kwargs):
+            # One box per call. Async generators run in their caller's context,
+            # so concurrent runs live on different tasks and cannot collide.
+            box = []
+            token = _inner_run_async_agens.set(box)
+            try:
+                async with Aclosing(veadk_wrapper(self, **kwargs)) as agen:
+                    async for event in agen:
+                        yield event
+            finally:
+                try:
+                    _inner_run_async_agens.reset(token)
+                except ValueError:
+                    # Finalized in a different context than the one that set
+                    # the token; the stale value dies with that context.
+                    pass
+                for inner in box:
+                    await inner.aclose()
+
+        return wrapper
+
+    return decorator
+
+
+# `Runner.__init__` calls this to build its per-instance `run_async`, so the
+# patch has to be in place before any Runner is constructed.
+_veadk_runner.intercept_new_message = _intercept_new_message_with_closing
+
+#### END OF WORKAROUND

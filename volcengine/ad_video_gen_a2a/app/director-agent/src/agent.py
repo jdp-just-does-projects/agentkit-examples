@@ -43,6 +43,16 @@ pipeline_guard.install_by_name(
     },
 )
 
+# URL guard. Every asset URL in this pipeline is relayed *through* a model,
+# and a ~500-character pre-signed TOS URL is occasionally retyped with a
+# duplicated or dropped character - the download then fails with a 403 and the
+# caller receives a non-JSON error string. The guard restores any URL the model
+# mistyped from the authoritative value (tool output / the caller's message).
+# See url_guard.py.
+import url_guard  # noqa: E402
+
+url_guard.install(agent)
+
 from veadk.memory.short_term_memory import ShortTermMemory
 from veadk.types import AgentRunConfig
 

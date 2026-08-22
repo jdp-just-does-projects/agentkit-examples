@@ -14,8 +14,8 @@
 
 import requests
 import json
-import traceback
 import logging
+import sys
 import time
 import os
 
@@ -27,9 +27,101 @@ test_dict = {
 url_template = test_dict["local"]
 
 
+# How much of an agent's answer to quote in an error message. Long enough to
+# see what went wrong, short enough not to bury the log in a 500-character URL.
+SNIPPET = 400
+
+
+class AgentError(RuntimeError):
+    """The agent service answered, but the answer is a failure, not a result.
+
+    Raised for transport failures, HTTP errors, and - the case worth naming -
+    an SSE event whose task state is ``failed``. That last one used to reach
+    the caller as an ordinary string containing a provider error message,
+    which then died at ``json.loads`` as ``Expecting value: line 1 column 1
+    (char 0)``, four lines away from the thing that actually broke.
+    """
+
+
+class AgentOutputError(RuntimeError):
+    """The agent succeeded, but its answer is not the JSON this step expects."""
+
+
 def save_result(result, filename):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=4)
+
+
+def event_failure(event):
+    """``(state, error_code, message)`` if this SSE event reports a failure.
+
+    Two places record one. ADK sets ``errorCode``/``errorMessage`` on the event
+    when the agent itself raised; when the answer came from a remote agent over
+    A2A, the relayed task carries the outcome in ``customMetadata``:
+
+        customMetadata["a2a:response"]["status"]["state"]        # "failed"
+        customMetadata["a2a:response"]["metadata"]["adk_error_code"]
+    """
+    error_code = event.get("errorCode")
+    message = event.get("errorMessage")
+
+    response = (event.get("customMetadata") or {}).get("a2a:response") or {}
+    state = (response.get("status") or {}).get("state")
+    error_code = error_code or (response.get("metadata") or {}).get("adk_error_code")
+
+    if error_code or state in ("failed", "rejected", "canceled"):
+        return state or "failed", error_code, message
+    return None
+
+
+def event_text(event):
+    """The text the agent finished with, or ``None`` if it wrote none."""
+    for part in (event.get("content") or {}).get("parts") or []:
+        if part.get("text"):
+            return part["text"]
+    return None
+
+
+def parse_and_save(text, step, filename):
+    """Parse a step's answer as JSON and save it, or explain why it is not JSON.
+
+    On failure the raw answer is written next to the run's other artefacts, so
+    the payload survives even when the console output is gone.
+    """
+    if not text or not text.strip():
+        raise AgentOutputError(f"{step}: the agent returned an empty answer")
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError as e:
+        raw_path = tmp_json_dir + filename + ".raw.txt"
+        with open(raw_path, "w", encoding="utf-8") as f:
+            f.write(text)
+        raise AgentOutputError(
+            f"{step}: the agent's answer is not JSON ({e}). "
+            f"It starts {text[:SNIPPET]!r} and the whole answer is in {raw_path}"
+        ) from e
+    save_result(result, tmp_json_dir + filename)
+    return result
+
+
+def fail(step, exc):
+    """Log a step failure and tell ``main`` to stop.
+
+    ``AgentError`` and ``AgentOutputError`` carry their own explanation; a
+    traceback would only bury it. Anything else is a bug here, so log the
+    traceback - through the logger, so it reaches the run's log file too.
+    """
+    detail = str(exc)
+    # run_sse and parse_and_save already name the step in their message; don't
+    # say it twice.
+    if detail.startswith(step + ":"):
+        detail = detail[len(step) + 1 :].lstrip()
+
+    if isinstance(exc, (AgentError, AgentOutputError)):
+        logger.error(f"main output: {step} failed: {detail}")
+    else:
+        logger.exception(f"main output: {step} failed: {detail}")
+    return False
 
 
 def create_session(app_name, user_id):
@@ -38,14 +130,35 @@ def create_session(app_name, user_id):
     payload = {}
     headers = {}
 
-    response = requests.request("POST", url, headers=headers, data=payload)
+    try:
+        response = requests.request("POST", url, headers=headers, data=payload)
+    except requests.exceptions.RequestException as e:
+        raise AgentError(
+            f"could not reach the agent service at {url} - is it running? ({e})"
+        ) from e
+    if not response.ok:
+        raise AgentError(
+            f"the agent service answered HTTP {response.status_code} for {url}: "
+            f"{response.text[:SNIPPET]}"
+        )
 
-    session_id = json.loads(response.text)["id"]
+    try:
+        session_id = json.loads(response.text)["id"]
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        raise AgentError(
+            f"the agent service did not return a session id ({e}): "
+            f"{response.text[:SNIPPET]}"
+        ) from e
     logger.info(f"main output: session_id: {session_id}")
     return session_id
 
 
 def pick_best_image(evaluate_image_result):
+    if "scored_image_list" not in evaluate_image_result:
+        raise AgentOutputError(
+            "the evaluate agent returned no `scored_image_list`; it returned "
+            f"{sorted(evaluate_image_result)}"
+        )
     best_image_list = []
     scored_image_list = evaluate_image_result["scored_image_list"]
     for shot in scored_image_list:
@@ -67,6 +180,11 @@ def pick_best_image(evaluate_image_result):
 
 
 def pick_best_video(evaluate_video_result):
+    if "scored_video_list" not in evaluate_video_result:
+        raise AgentOutputError(
+            "the evaluate agent returned no `scored_video_list`; it returned "
+            f"{sorted(evaluate_video_result)}"
+        )
     best_video_list = []
     scored_video_list = evaluate_video_result["scored_video_list"]
 
@@ -88,7 +206,13 @@ def pick_best_video(evaluate_video_result):
     return best_video_list
 
 
-def run_sse(app_name, user_id, session_id, text):
+def run_sse(app_name, user_id, session_id, text, step="run_sse"):
+    """Send one request to the agent service and return the final answer text.
+
+    Raises ``AgentError`` instead of returning ``None`` when anything goes
+    wrong, so a failure is reported where it happens and with the reason
+    attached, rather than surfacing as an unrelated parse error one step later.
+    """
     url = url_template.format("run_sse")
     # logger.info(f"main output: run_sse url: {url}")
     payload = json.dumps(
@@ -101,73 +225,104 @@ def run_sse(app_name, user_id, session_id, text):
     )
     headers = {"Content-Type": "application/json"}
 
+    # (1) Skip stream=True and wait for the complete response
     try:
-        # (1) Skip stream=True and wait for the complete response
         response = requests.post(url, headers=headers, data=payload, timeout=6000)
-        response.raise_for_status()  # Raises on 4xx / 5xx responses
-        logger.info(f"Raw response: {response.text[:500]}...")  # Print only the first 500 characters to keep logs short
+    except requests.exceptions.Timeout as e:
+        raise AgentError(f"{step}: the agent did not answer within 6000 seconds") from e
+    except requests.exceptions.RequestException as e:
+        raise AgentError(f"{step}: the request to {url} failed: {e}") from e
 
-        # (2) Parse the last data: block line by line (the server still returns SSE format)
-        data_lines = [
-            line for line in response.text.splitlines() if line.startswith("data: ")
-        ]
-        if not data_lines:
-            logger.warning("No data: block found")
-            return None
+    if not response.ok:
+        # requests' own HTTPError message omits the body, which is where the
+        # service explains itself.
+        raise AgentError(
+            f"{step}: the agent service answered HTTP {response.status_code}: "
+            f"{response.text[:SNIPPET]}"
+        )
+    logger.info(f"Raw response: {response.text[:500]}...")  # Print only the first 500 characters to keep logs short
 
-        last_data = data_lines[-1][6:]  # Strip the 'data: ' prefix
-        event = json.loads(last_data)
-        logger.info(
-            f"Last event: {json.dumps(event, ensure_ascii=False, indent=2)}"
+    # (2) Parse the last data: block line by line (the server still returns SSE format)
+    data_lines = [
+        line for line in response.text.splitlines() if line.startswith("data: ")
+    ]
+    if not data_lines:
+        raise AgentError(
+            f"{step}: the response carried no `data:` block: {response.text[:SNIPPET]}"
         )
 
-        # (3) Extract the final content (assuming a fixed structure)
-        return event["content"]["parts"][0]["text"]
+    last_data = data_lines[-1][6:]  # Strip the 'data: ' prefix
+    try:
+        event = json.loads(last_data)
+    except json.JSONDecodeError as e:
+        raise AgentError(
+            f"{step}: the last SSE event is not JSON ({e}): {last_data[:SNIPPET]}"
+        ) from e
+    logger.info(
+        f"Last event: {json.dumps(event, ensure_ascii=False, indent=2)}"
+    )
 
-    except requests.exceptions.Timeout:
-        logger.error("Request timed out (over 6000 seconds)")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request failed: {e}")
-    except (KeyError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to parse the response: {e}")
+    # (3) A failed run also ends with a well-formed event - the failure is in
+    # its metadata, and the text part holds the provider's error message.
+    # Report it here rather than handing that message on as if it were output.
+    failure = event_failure(event)
+    if failure:
+        state, error_code, message = failure
+        detail = message or event_text(event) or json.dumps(event, ensure_ascii=False)
+        raise AgentError(
+            f"{step}: the {event.get('author', app_name)} agent finished in state "
+            f"'{state}'{f' ({error_code})' if error_code else ''}: {detail[:SNIPPET]}"
+        )
 
-    return None
+    # (4) Extract the final content
+    final_text = event_text(event)
+    if final_text is None:
+        raise AgentError(
+            f"{step}: the agent's last event carries no text: "
+            f"{json.dumps(event.get('content'), ensure_ascii=False)[:SNIPPET]}"
+        )
+    return final_text
 
 
 def main(user_need):
+    """Run the pipeline end to end. Returns True on success, False on failure."""
     # step 0: create session
     try:
         logger.info("main output: 0. Creating session...")
         session_id = create_session("demo_app", "user")
         save_result(session_id, tmp_json_dir + "0_session_id.json")
     except Exception as e:
-        logger.info(f"main output: 0. create session failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("0. create session", e)
 
     # step 1: generate video config
     try:
         logger.info("main output: 1. Generating the video configuration...")
         generate_video_config_input = user_need + "\nGenerate the video configuration"
         video_config = run_sse(
-            "demo_app", "user", session_id, generate_video_config_input
+            "demo_app", "user", session_id, generate_video_config_input,
+            step="1. generate the video configuration",
         )
         logger.info(f"main output: 1. video_config: {video_config}")
-        save_result(json.loads(video_config), tmp_json_dir + "1_video_config.json")
+        video_config_data = parse_and_save(
+            video_config, "1. generate the video configuration", "1_video_config.json"
+        )
     except Exception as e:
-        logger.info(f"main output: 1. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("1. generate the video configuration", e)
 
     # step 1.1: parse video_type
     try:
         logger.info("main output: 1.1 Parsing video_type...")
         logger.info(f"main output: 1.1 video_config: {video_config}")
-        video_type = json.loads(video_config)["video_type"]
+        video_type = video_config_data["video_type"]
     except Exception as e:
-        logger.info(f"main output: 1.1 get video_type failed: {e}")
-        traceback.print_exc()
-        return
+        found = (
+            sorted(video_config_data)
+            if isinstance(video_config_data, dict)
+            else type(video_config_data).__name__
+        )
+        return fail(
+            f"1.1 read video_type from the video configuration (it holds {found})", e
+        )
 
     # step 2: generate shot list
     try:
@@ -175,25 +330,27 @@ def main(user_need):
         generate_shot_list_input = (
             "Generate the storyboard script from the following video_config\n\n" + video_config
         )
-        shot_list = run_sse("demo_app", "user", session_id, generate_shot_list_input)
+        shot_list = run_sse(
+            "demo_app", "user", session_id, generate_shot_list_input,
+            step="2. generate the storyboard script",
+        )
         logger.info(f"main output: 2. shot_list: {shot_list}")
-        save_result(json.loads(shot_list), tmp_json_dir + "2_shot_list.json")
+        parse_and_save(shot_list, "2. generate the storyboard script", "2_shot_list.json")
     except Exception as e:
-        logger.info(f"main output: 2. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("2. generate the storyboard script", e)
 
     # step 3: generate image list
     try:
         logger.info("main output: 3. Generating the storyboard images...")
         generate_image_list_input = "Generate the storyboard images from the following shot_list\n\n" + shot_list
-        image_list = run_sse("demo_app", "user", session_id, generate_image_list_input)
+        image_list = run_sse(
+            "demo_app", "user", session_id, generate_image_list_input,
+            step="3. generate the storyboard images",
+        )
         logger.info(f"main output: 3. image_list: {image_list}")
-        save_result(json.loads(image_list), tmp_json_dir + "3_image_list.json")
+        parse_and_save(image_list, "3. generate the storyboard images", "3_image_list.json")
     except Exception as e:
-        logger.info(f"main output: 3. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("3. generate the storyboard images", e)
 
     # step 4: evaluate image list
     try:
@@ -202,28 +359,26 @@ def main(user_need):
             "Evaluate the quality of the storyboard images from the following storyboard image list image_list\n\n" + image_list
         )
         evaluate_image_result = run_sse(
-            "demo_app", "user", session_id, evaluate_image_list_input
+            "demo_app", "user", session_id, evaluate_image_list_input,
+            step="4. evaluate the storyboard images",
         )
         logger.info(f"main output: 4. evaluate_image_result: {evaluate_image_result}")
-        save_result(
-            json.loads(evaluate_image_result),
-            tmp_json_dir + "4_evaluate_image_list.json",
+        evaluate_image_data = parse_and_save(
+            evaluate_image_result,
+            "4. evaluate the storyboard images",
+            "4_evaluate_image_list.json",
         )
     except Exception as e:
-        logger.info(f"main output: 4. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("4. evaluate the storyboard images", e)
 
     # step 4.1: pick best image
     try:
         logger.info("main output: 4.1 Picking the best storyboard images...")
-        best_image_list = pick_best_image(json.loads(evaluate_image_result))
+        best_image_list = pick_best_image(evaluate_image_data)
         save_result(best_image_list, tmp_json_dir + "4_1_selected_image_list.json")
         logger.info(f"main output: 4.1 best_image_list: {best_image_list}")
     except Exception as e:
-        logger.info(f"main output: 4.1 pick best image failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("4.1 pick the best storyboard images", e)
 
     # step 5: generate video list
     try:
@@ -232,13 +387,14 @@ def main(user_need):
             "Generate the storyboard videos from the following image_list, generating 4 videos per shot\n\n"
             + str(best_image_list)
         )
-        video_list = run_sse("demo_app", "user", session_id, generate_video_list_input)
+        video_list = run_sse(
+            "demo_app", "user", session_id, generate_video_list_input,
+            step="5. generate the storyboard videos",
+        )
         logger.info(f"main output: 5. video_list: {video_list}")
-        save_result(json.loads(video_list), tmp_json_dir + "5_video_list.json")
+        parse_and_save(video_list, "5. generate the storyboard videos", "5_video_list.json")
     except Exception as e:
-        logger.info(f"main output: 5. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("5. generate the storyboard videos", e)
 
     # step 6: evaluate video list
     try:
@@ -250,28 +406,26 @@ def main(user_need):
             f"main output: 6. evaluate_video_list_input: {evaluate_video_list_input}"
         )
         evaluate_video_result = run_sse(
-            "demo_app", "user", session_id, evaluate_video_list_input
+            "demo_app", "user", session_id, evaluate_video_list_input,
+            step="6. evaluate the storyboard videos",
         )
         logger.info(f"main output: 6. evaluate_video_result: {evaluate_video_result}")
-        save_result(
-            json.loads(evaluate_video_result),
-            tmp_json_dir + "6_evaluate_video_list.json",
+        evaluate_video_data = parse_and_save(
+            evaluate_video_result,
+            "6. evaluate the storyboard videos",
+            "6_evaluate_video_list.json",
         )
     except Exception as e:
-        logger.info(f"main output: 6. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("6. evaluate the storyboard videos", e)
 
     # step 6.1: pick best video
     try:
         logger.info("main output: 6.1 Picking the best storyboard videos...")
-        best_video_list = pick_best_video(json.loads(evaluate_video_result))
+        best_video_list = pick_best_video(evaluate_video_data)
         save_result(best_video_list, tmp_json_dir + "6_1_selected_video_list.json")
         logger.info(f"main output: 6.1 best_video_list: {best_video_list}")
     except Exception as e:
-        logger.info(f"main output: 6.1 pick best video failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("6.1 pick the best storyboard videos", e)
 
     # step 7: generate final video
     try:
@@ -286,14 +440,16 @@ def main(user_need):
         )
 
         final_video = run_sse(
-            "demo_app", "user", session_id, generate_final_video_input
+            "demo_app", "user", session_id, generate_final_video_input,
+            step="7. generate the final video",
         )
         logger.info(f"main output: 7. final_video: {final_video}")
         save_result(final_video, tmp_json_dir + "7_final_video.json")
     except Exception as e:
-        logger.info(f"main output: 7. run sse failed: {e}")
-        traceback.print_exc()
-        return
+        return fail("7. generate the final video", e)
+
+    logger.info("main output: done. The final video is in " + tmp_json_dir + "7_final_video.json")
+    return True
 
 
 if __name__ == "__main__":
@@ -325,5 +481,6 @@ if __name__ == "__main__":
     user_need = "Generate a promotional video (Product Showcase Video) for a Christmas limited dark chocolate gift box, warm festive style. Product image: http://lf3-static.bytednsdoc.com/obj/eden-cn/lm_sth/ljhwZthlaukjlkulzlp/ark/assistant/images/ad_chocolate.png"
     logger.info(f"!!!! main output: test_type:{t_type}, url_template: {url_template}")
 
-    # Run the pipeline
-    main(user_need)
+    # Run the pipeline. A non-zero exit status means a step failed - the reason
+    # is the last `failed:` line in the log.
+    sys.exit(0 if main(user_need) else 1)

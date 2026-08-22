@@ -20,6 +20,7 @@ from typing_extensions import override
 
 from google.adk.agents import InvocationContext
 from google.adk.events import Event, EventActions
+from google.adk.utils.context_utils import Aclosing
 from veadk import Agent
 from evaluate_agent.utils.types import (
     max_output_tokens_config,
@@ -38,30 +39,35 @@ class EvaluateAgent(Agent):
     async def _run_async_impl(
         self, ctx: InvocationContext
     ) -> AsyncGenerator[Event, None]:
-        async for event in super()._run_async_impl(ctx):
-            if (
-                event.get_function_responses()
-                and event.content.parts
-                and len(event.content.parts) > 0
-                and event.content.parts[0].function_response
-                and event.content.parts[0].function_response.name == "evaluate_media"
-            ):
-                yield event
-                # During the agent summarization stage, emit the output directly
-                text = json.dumps(
-                    event.content.parts[0].function_response.response,
-                    ensure_ascii=False,
-                )
-                final_event = Event(
-                    author=self.name,
-                    invocation_id=ctx.invocation_id,
-                    branch=ctx.branch,
-                    content=types.Content(parts=[types.Part(text=text)]),
-                    actions=EventActions(skip_summarization=True),
-                )
-                yield final_event
-            else:
-                yield event
+        # `Aclosing` (not a bare `async for`) so the wrapped generator is closed
+        # in this task when a caller stops consuming us early - see the note in
+        # workarounds.py about OpenTelemetry's "Failed to detach context" error.
+        async with Aclosing(super()._run_async_impl(ctx)) as agen:
+            async for event in agen:
+                if (
+                    event.get_function_responses()
+                    and event.content.parts
+                    and len(event.content.parts) > 0
+                    and event.content.parts[0].function_response
+                    and event.content.parts[0].function_response.name
+                    == "evaluate_media"
+                ):
+                    yield event
+                    # During the agent summarization stage, emit the output directly
+                    text = json.dumps(
+                        event.content.parts[0].function_response.response,
+                        ensure_ascii=False,
+                    )
+                    final_event = Event(
+                        author=self.name,
+                        invocation_id=ctx.invocation_id,
+                        branch=ctx.branch,
+                        content=types.Content(parts=[types.Part(text=text)]),
+                        actions=EventActions(skip_summarization=True),
+                    )
+                    yield final_event
+                else:
+                    yield event
 
 
 agent = EvaluateAgent(
