@@ -17,23 +17,24 @@ import os
 os.environ["LOGGING_LEVEL"] = "ERROR"
 import time
 import asyncio
+
 # Load `.env` before any veadk import (veadk snapshots the environment at first import).
 from consts import load_env_file
 
 load_env_file()
 
-from google.adk.sessions import Session
-from google.adk.agents import RunConfig
-from google.adk.agents.run_config import StreamingMode
-from google.adk.events import Event
-from google.genai import types
-from veadk import Runner
-from veadk.memory import ShortTermMemory
+from google.adk.sessions import Session  # noqa: E402
+from google.adk.agents import RunConfig  # noqa: E402
+from google.adk.agents.run_config import StreamingMode  # noqa: E402
+from google.adk.events import Event  # noqa: E402
+from google.genai import types  # noqa: E402
+from veadk import Runner  # noqa: E402
+from veadk.memory import ShortTermMemory  # noqa: E402
 
 # Importing from `agent` (rather than `app` directly) applies the sys.path
 # bootstrap and the LiteLlm/ArkLlm serialization and json-repair workarounds
 # before the agent tree is built.
-from agent import root_agent
+from agent import root_agent  # noqa: E402
 
 
 async def export_session(session_service, app_name, user_id, session_id, file_path):

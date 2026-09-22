@@ -61,4 +61,3 @@ def load_env_file() -> list[Path]:
     for env_file in loaded:
         logger.info(f"[consts] Loaded environment variables from {env_file}")
     return loaded
-

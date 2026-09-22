@@ -20,13 +20,13 @@ from consts import load_env_file
 
 load_env_file()
 
-from agentkit.apps import AgentkitAgentServerApp
-from veadk.memory import ShortTermMemory
+from agentkit.apps import AgentkitAgentServerApp  # noqa: E402
+from veadk.memory import ShortTermMemory  # noqa: E402
 
 # Importing from `agent` (rather than `app` directly) applies the sys.path
 # bootstrap and the LiteLlm/ArkLlm serialization and json-repair workarounds
 # before the agent tree is built.
-from agent import root_agent
+from agent import root_agent  # noqa: E402
 
 short_term_memory = ShortTermMemory(backend="local")
 
