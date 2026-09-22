@@ -62,9 +62,9 @@ quoted** — then review notes, then a **scorecard with visible arithmetic**
 This turn is the demo's centerpiece — real test failures and the scorecard,
 and (expand **Execution Process**) the `run_code` call that produced them:
 
-![Turn 3 — hidden tests fail with ZeroDivisionError, 65/100 scorecard](images/06-online-test-turn3.png)
+![Turn 3 — hidden tests fail with ZeroDivisionError, 65/100 scorecard](../assets/images/06-online-test-turn3.png)
 
-![Execution Process — the run_code tool call and its result](images/06b-run-code-execution.png)
+![Execution Process — the run_code tool call and its result](../assets/images/06b-run-code-execution.png)
 
 ## Turn 4 — hint discipline
 
