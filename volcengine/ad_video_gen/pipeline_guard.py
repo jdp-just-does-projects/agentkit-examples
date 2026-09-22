@@ -246,9 +246,7 @@ class _Guard:
     def nudge_text(self, tool_context: ToolContext) -> str:
         state = self._state_for(tool_context.invocation_id)
         missing = sorted(self.required_tools - state.tools_called)
-        detail = (
-            f" (you still have to call: {', '.join(missing)})" if missing else ""
-        )
+        detail = f" (you still have to call: {', '.join(missing)})" if missing else ""
         return self.nudge_message.replace("{missing}", detail)
 
 
