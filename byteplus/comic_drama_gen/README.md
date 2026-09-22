@@ -1,185 +1,128 @@
-# Comic Drama Generator
+# 漫剧生成 Agent（BytePlus 版）
 
-**IMPORTANT**: This demo works with Python 3.12 but *not* Python 3.14. You can use a tool such as [mise](https://mise.jdx.dev/getting-started.html) to install and manage multiple Python versions.
+> English documentation: [README_en.md](README_en.md)
 
-An AI-powered comic drama production Agent built on BytePlus AgentKit. Simply input a story idea, and the agent will automatically complete the entire pipeline — from screenplay writing, character design, storyboard generation, scene video generation, to final video compositing — delivering a complete comic drama video with a TOS download link.
+## 概述
 
-## Core Features
+本样例是一个基于 BytePlus AgentKit 构建的 AI 漫剧（Comic Drama）自动化制作 Agent。
 
-- **End-to-End Automation**: 8-step pipeline from creative concept to finished film, no manual intervention required
-- **Intelligent Duration Allocation**: Dynamic 4~30 second allocation per scene for natural pacing
-- **Professional Camera Language**: Built-in director-level camera strategies (speed ramps, 360° orbits, tracking shots, etc.)
-- **Content Safety Pre-screening**: Automatic risk assessment with proactive handling of sensitive content
-- **Style Consistency**: STYLE_ANCHOR maintained throughout the entire workflow with strict character prompt reuse
-- **English by Default**: The agent works in English by default — its replies, the generated documents, the image and video prompts, and the dialogue the characters speak on screen. If you write to it in another language, it switches to that language for all of those outputs (and the characters speak it) so the results are easy for you to review
-- **Output Verification**: Automatic file integrity checks + AI quality scoring after each step
-- **Multi-Genre Support**: Mythology, martial arts, cultivation, urban, sci-fi, children's stories, and 10+ more genres
-- **MCP Tool Integration**: Video editing capability via `@pickstar-2002/video-clip-mcp`
-- **Checkpoint Resume**: Interrupted tasks can be resumed from the last completed step
-- **Runs Unattended**: The pipeline runs from story idea to final video in a single turn. If the model ever ends a turn between steps (a text-only "moving on to Step N" reply, which would otherwise stop the run and force you to type "continue"), the runtime guard in `pipeline_guard.py` injects a `continue_pipeline` tool call so the run resumes on its own
-- **Parallel Image Generation**: Character portraits and storyboard images support parallel generation for significantly improved efficiency
-- **Auto-Retry on Failure**: Automatic retry on scene generation failures for higher success rates
+只需输入一个故事创意，Agent 就会自动完成从剧本创作、角色设计、分镜图生成、分镜视频生成到最终视频合成的完整流水线，最终交付一部完整的漫剧视频，并附带 TOS 下载链接。
 
-## Production Pipeline
+**注意**：本样例在 Python 3.12 下测试通过（Python 3.14 不可用），推荐使用 [mise](https://mise.jdx.dev/getting-started.html) 安装并管理多版本 Python。
 
-![Production pipeline](img/production_pipeline.png)
+制作流水线：
 
-<details>
-<summary>Mermaid source</summary>
+![制作流水线](assets/images/production_pipeline.png)
 
-```mermaid
-flowchart TB
-    idea(["User story idea"])
+系统架构：
 
-    s0["Step 0 · Resume detection<br/>task_manager.py list"]
-    s1["Step 1 · Load configuration<br/>app_config.py · VIDEO_DURATION_MINUTES<br/>smart duration mode, 4-30 s per scene"]
-    s2["Step 2 · Initialize task directory<br/>task_manager.py init"]
-    safety{{"Content-safety pre-review<br/>low / medium / high risk"}}
-    s3["Step 3 · Screenplay<br/>web_search.py research<br/>+ smart duration allocation"]
-    s4["Step 4 · Character design<br/>batch_image_generate.py — parallel portraits"]
-    s5["Step 5 · Scene art<br/>batch_image_generate.py — storyboard frames<br/>STYLE_ANCHOR + character prompt reuse"]
-    s6["Step 6 · Scene videos<br/>batch_video.py submit → poll<br/>per-scene duration · auto-retry on failure"]
-    s7["Step 7 · Synthesis and delivery<br/>file_download.py → video_merge.py (ffmpeg)<br/>→ tos_upload.py"]
-    s8["Step 8 · Artifact verification + scoring<br/>verify_task.py · video_scorer.py"]
+![系统架构](assets/images/system_architecture.png)
 
-    art[("Task directory<br/>requirements.md · plot.md · script.md<br/>characters.md + characters/<br/>storyboard/ · videos/ · final_video.mp4")]
-    tos[("TOS · signed download URL")]
-    done(["Final video + TOS link + scoring report<br/>ending with the Pipeline complete line"])
+（两张图的 Mermaid 源码见 [README_en.md](README_en.md)）
 
-    idea --> s0 --> s1 --> s2 --> safety
-    safety -- "medium: euphemistic rewrites<br/>high: warn the user first" --> s3
-    s3 --> s4 --> s5 --> s6 --> s7 --> s8 --> done
-    s0 -. "unfinished task found: resume from the last completed step" .-> s6
+## 核心功能
 
-    s3 --> art
-    s4 --> art
-    s5 --> art
-    s6 --> art
-    s7 --> art
-    art --> s8
-    s7 --> tos --> done
+- **端到端自动化**：从创意到成片的 8 步流水线，无需人工干预
+- **智能时长分配**：每个分镜动态分配 4~30 秒时长，节奏更自然
+- **专业镜头语言**：内置导演级运镜策略（变速、360° 环绕、跟踪镜头等）
+- **内容安全预审**：自动进行风险评估，对敏感内容做前置处理
+- **风格一致性**：全流程维护 STYLE_ANCHOR，并严格复用角色提示词
+- **默认英文、跟随用户语言**：Agent 默认以英文工作——回复、生成的文档、图像与视频提示词以及片中角色台词均为英文；用户使用其他语言时会整体切换到该语言，便于审阅
+- **产出校验**：每一步完成后自动进行文件完整性检查与 AI 质量打分
+- **多题材支持**：神话、武侠、修仙、都市、科幻、儿童故事等 10+ 题材
+- **MCP 工具集成**：通过 `@pickstar-2002/video-clip-mcp` 提供视频剪辑能力
+- **断点续跑**：任务中断后可从最后一个完成的步骤继续
+- **无人值守运行**：整条流水线在单次对话中从故事创意跑到成片；若模型在步骤之间以纯文本结束回合（否则用户需要手动输入"继续"），`pipeline_guard.py` 中的运行时守卫会注入 `continue_pipeline` 工具调用让流程自动继续
+- **并行图像生成**：角色立绘与分镜图支持并行生成，显著提升效率
+- **失败自动重试**：分镜视频生成失败会自动重试，提高成功率
 
-    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
-    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
-    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
-    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
-    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
-    class s0,s1,s2,s3,s4,s5,s6,s7,s8 tool
-    class safety ext
-    class art,tos store
-    class idea,done actor
+## Agent 能力
+
+| 组件 | 说明 |
+| --- | --- |
+| **Agent 服务** | [`agent.py`](agent.py) - AgentKit 服务入口：注册 MCP 视频剪辑工具、加载技能、配置会话存储 |
+| **Agent 配置** | [`agent.yaml`](agent.yaml) - 模型与系统指令定义，由 AgentBuilder 构建 `comic_drama_master` |
+| **漫剧制作技能** | [`skill/comic-drama-master/`](skill/comic-drama-master/SKILL.md) - 8 步全流程技能规范（SKILL.md + references 规范文档 + scripts 执行脚本） |
+| **自动续跑守卫** | [`pipeline_guard.py`](pipeline_guard.py) - 若模型在步骤之间以纯文本结束回合，会注入 `continue_pipeline` 工具调用让流水线继续，用户无需手动输入"继续" |
+| **签名 URL 注册表** | [`url_registry.py`](url_registry.py) - 工具返回的 TOS 预签名 URL 常被模型截断导致 `403 Forbidden`；注册表记录每个 URL 并在下一次工具调用前还原完整签名 |
+| **模型默认值** | [`consts.py`](consts.py) - 默认模型名、API 地址与 `.env` 自动加载逻辑 |
+| **MCP 视频剪辑** | `@pickstar-2002/video-clip-mcp` - 通过 `npx` 以本地 stdio 方式启动的视频剪辑 MCP 工具 |
+| **短期记忆** | 基于 sqlite 的 `ShortTermMemory`，维护会话上下文，保证多轮对话连续性 |
+
+## 目录结构说明
+
+```bash
+comic_drama_gen
+├── LICENSE                   # 代码许可（Apache 2.0）
+├── README.md                 # 中文说明文档（本文件）
+├── README_en.md              # 英文说明文档
+├── project.yaml              # 项目信息元数据
+├── agent.py                  # 主程序入口（MCP 工具注册、技能加载、会话存储）
+├── agent.yaml                # Agent 配置（模型、系统指令）
+├── consts.py                 # 默认模型名、API 地址与 .env 自动加载逻辑
+├── pipeline_guard.py         # 自动续跑守卫回调
+├── url_registry.py           # 签名 URL 注册表回调
+├── .env.example              # 环境变量示例文件
+├── pyproject.toml            # 项目依赖管理文件（uv）
+├── requirements.txt          # 项目依赖管理文件（pip）
+├── assets
+│   └── images                # 流水线图、架构图与运行截图等静态资源
+├── scripts
+│   └── setup.sh              # 云端部署构建脚本（预装 video-clip-mcp）
+└── skill
+    └── comic-drama-master
+        ├── SKILL.md          # 总导演技能规范（8 步全流程）
+        ├── examples
+        │   └── examples.md   # 完整使用示例
+        ├── references        # 各环节规范文档
+        │   ├── character-designer.md    # 角色设计规范
+        │   ├── scene-designer.md        # 场景美术规范
+        │   ├── screenplay-generator.md  # 剧本生成规范
+        │   ├── storyboard-director.md   # 分镜导演规范
+        │   └── video-synthesizer.md     # 视频合成规范
+        └── scripts           # 技能执行脚本（通过 bash 调用）
+            ├── app_config.py            # 视频时长配置读取
+            ├── task_manager.py          # 任务目录管理（FIFO 清理，最多 16 个任务）
+            ├── batch_image_generate.py  # 批量并行图像生成
+            ├── batch_video.py           # 批量视频任务提交 / 轮询
+            ├── create_video_task.py     # 单个视频任务创建
+            ├── query_video_task.py      # 视频任务状态查询
+            ├── image_generate.py        # 图像生成（base64 直接保存）
+            ├── web_search.py            # 网络搜索（用于剧本调研）
+            ├── video_merge.py           # ffmpeg 视频合并
+            ├── video_scorer.py          # AI 质量打分（5 个维度）
+            ├── verify_task.py           # 产出完整性校验
+            ├── tos_upload.py            # TOS 上传
+            ├── file_download.py         # 批量文件下载
+            └── get_aksk.py              # AK/SK 凭证获取
 ```
 
-</details>
+## 本地运行
 
-## System Architecture
+### 前置准备
 
-![System architecture](img/system_architecture.png)
+**BytePlus 访问凭证**
 
-<details>
-<summary>Mermaid source</summary>
+1. 登录 [BytePlus 控制台](https://console.byteplus.com)
+2. 进入 "Identity and Access Management" → "Users" → 新建用户或搜索已有用户 → 点击用户名进入 "User Details" → 进入 "Keys" → 新建密钥或复制已有 AK/SK
+3. 为该用户配置 AgentKit 依赖服务的访问权限：在 "User Details" 页面 → "Permissions" → "Add Permission"，授予以下策略
+    - `AgentKitFullAccess`（AgentKit 完全访问）
+    - `APMPlusServerFullAccess`（APMPlus 完全访问）
+4. 获取该用户的 ModelArk API Key：搜索 "ModelArk" 产品进入控制台 → "API Key Management" → 创建或复制已有 API Key
+5. 在 ModelArk 控制台的 "Model activation" 页面开通以下预置推理接入点：
+   - **Agent 模型**：`deepseek-v4-pro-260425`
+   - **图像生成模型**：`dola-seedream-5-0-pro-260628`（列表中显示为 "Dola-Seedream-5.0-pro"）
+   - **视频生成模型**：`dreamina-seedance-2-5-260628`（列表中显示为 "Dreamina-Seedance-2.5"，支持最长 30 秒的视频片段）
 
-```mermaid
-flowchart TB
-    user(["User<br/>story idea · or &quot;continue&quot; to resume a task"])
+**Node.js 环境**
 
-    subgraph runtime["AgentKit Runtime — agent.py"]
-        direction TB
-        app["AgentkitAgentServerApp<br/>HTTP :8000"]
-        mem[("ShortTermMemory<br/>sqlite · .data/sessions.db")]
+- 安装 Node.js 18+ 与 npm（[Node.js 安装](https://nodejs.org/en)）
+- 确保终端中 `npx` 命令可用
+- MCP 视频工具（`@pickstar-2002/video-clip-mcp`）会在 Agent 运行时通过 `npx` 自动启动，无需手动安装
 
-        subgraph agent["comic_drama_master — built by AgentBuilder from agent.yaml"]
-            direction TB
-            llm["deepseek-v4-pro-260425<br/>content-safety pre-review · 8-step orchestration"]
-            guard["pipeline_guard.py<br/>completion markers: pipeline complete ·<br/>artifact verification report · overall score"]
-            registry["url_registry.py<br/>restores pre-signed URLs in tool arguments"]
-        end
+**ffmpeg**
 
-        skills["SkillsToolset (skills_mode = local)<br/>skills · bash · read_file · write_file · edit_file"]
-        mcp["McpToolset — stdio<br/>@pickstar-2002/video-clip-mcp"]
-    end
-
-    subgraph skill["skill/comic-drama-master — loaded on demand by the skills tool"]
-        direction TB
-        skillmd["SKILL.md — Steps 0-8 + camera-language guide<br/>references/: screenplay · character · scene ·<br/>storyboard · video-synthesizer"]
-        scripts["scripts/ run through bash:<br/>app_config · task_manager · web_search<br/>image_generate · batch_image_generate<br/>batch_video submit/poll · file_download<br/>video_merge · tos_upload · video_scorer · verify_task"]
-        skillmd --> scripts
-    end
-
-    subgraph ark["BytePlus ModelArk — called directly over HTTPS by the scripts"]
-        direction TB
-        seedream["Seedream 5.0 Pro<br/>dola-seedream-5-0-pro-260628<br/>character portraits + storyboard frames"]
-        seedance["Seedance 2.5<br/>dreamina-seedance-2-5-260628<br/>one clip per scene, 4-30 s each"]
-        scorer["Vision model — video_scorer.py<br/>quality score per artifact"]
-    end
-
-    search["BytePlus web search API<br/>background research for the screenplay"]
-    outdir[("COMIC_DRAMA_OUTPUT_DIR/task_&lt;timestamp&gt;_&lt;name&gt;/<br/>plot.md · script.md · characters/ · storyboard/<br/>videos/ · final_video.mp4")]
-    tos[("TOS<br/>final video · signed download URL")]
-
-    user -- "story idea" --> app --> llm
-    app <--> mem
-    llm --> skills --> skillmd
-    llm -- "bash: python scripts/..." --> scripts
-    scripts --> seedream
-    scripts --> seedance
-    scripts --> scorer
-    scripts --> search
-    scripts <--> outdir
-    scripts -- "video_merge.py (ffmpeg) → tos_upload.py" --> tos
-    llm -. "optional clip editing" .-> mcp
-    tos -- "signed URL + verification report" --> user
-
-    guard -. "injects continue_pipeline until Step 8<br/>reports the final Pipeline complete line" .-> llm
-    registry -. "keeps signed image / video URLs intact" .-> scripts
-
-    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
-    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
-    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
-    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
-    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
-    class llm,guard,registry agent
-    class app,skills,mcp,skillmd,scripts tool
-    class seedream,seedance,scorer,search ext
-    class tos,mem,outdir store
-    class user actor
-    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
-    style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
-    style skill fill:#f2fbf6,stroke:#2e9e6b,color:#08281a
-    style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
-```
-
-</details>
-
-## Quick Start
-
-### Prerequisites
-
-#### BytePlus Access Credentials
-
-1. Log in to the [BytePlus Console](https://console.byteplus.com)
-2. Go to "Identity and Access Management" → "Users" → Create a new user or search for an existing username → Click the username to enter "User Details" → Go to "Keys" → Create a new key or copy an existing AK/SK
-3. Configure access permissions for the services that AgentKit depends on for the user:
-    - On the "User Details" page → Go to "Permissions" → Click "Add Permission", and grant the following policies to the user
-    - `AgentKitFullAccess` (AgentKit full access)
-    - `APMPlusServerFullAccess` (APMPlus full access)
-4. Obtain the ModelArk API key for the user
-    - Search for the "ModelArk" product and click to enter the console
-    - Go to "API Key Management" → Create or copy an existing API Key
-5. Activate the following pre-built inference endpoints ("Model activation" in the ModelArk console):
-   - Agent model: `deepseek-v4-pro-260425`
-   - Image generation model: `dola-seedream-5-0-pro-260628` (listed under "Dola-Seedream-5.0-pro")
-   - Video generation model: `dreamina-seedance-2-5-260628` (listed under "Dreamina-Seedance-2.5") — supports video clips up to 30 seconds long
-
-#### Node.js Environment
-
-- Install Node.js 18+ and npm ([Node.js Installation](https://nodejs.org/en))
-- Ensure the `npx` command is available in the terminal
-- The MCP video tool (`@pickstar-2002/video-clip-mcp`) will be automatically started via `npx` when the agent is running — no manual installation required
-
-#### ffmpeg
-
-Video merging (Step 7 of the pipeline) uses `ffmpeg` / `ffprobe`. Install it with your package manager, e.g.:
+视频合并（流水线第 7 步）使用 `ffmpeg` / `ffprobe`，请通过包管理器安装，例如：
 
 ```bash
 # macOS
@@ -188,33 +131,31 @@ brew install ffmpeg
 sudo apt-get install -y ffmpeg
 ```
 
-#### TOS Storage Bucket
+**TOS 存储桶**
 
-Create a TOS storage bucket for storing generated images and video files in the [BytePlus TOS Console](https://console.byteplus.com/tos). The default AgentKit bucket name has the form `agentkit-platform-{{your_account_id}}`.
+在 [BytePlus TOS 控制台](https://console.byteplus.com/tos) 创建一个 TOS 存储桶，用于存放生成的图片与视频文件。AgentKit 默认桶名形如 `agentkit-platform-{{your_account_id}}`。
 
-### Install Dependencies
+### 依赖安装
 
-*We recommend using uv to manage Python dependencies*
-
-Once uv is installed, set up with:
+推荐使用 `uv` 管理 Python 依赖：
 
 ```bash
 uv sync
 ```
 
-If you are in China and have connectivity issues, you can use this command instead:
+如果在中国大陆遇到网络问题，可以改用：
 
 ```bash
 uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-### Configure Environment Variables
+### 环境准备
 
-Two methods are supported:
+支持两种配置方式。
 
-#### Method 1: `.env` File (Recommended)
+**方式一：`.env` 文件（推荐）**
 
-Copy [`.env.example`](.env.example) to `.env` in the `comic_drama_gen/` directory (or in the directory you launch from) and fill in the values:
+将 [`.env.example`](.env.example) 复制为 `comic_drama_gen/` 目录（或启动目录）下的 `.env` 并填写：
 
 ```bash
 BYTEPLUS_ACCESS_KEY=your_ak
@@ -230,9 +171,9 @@ VIDEO_DURATION_MINUTES=0.5
 DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 ```
 
-> The `.env` file is loaded automatically at startup (via `python-dotenv`). Values in `.env` take precedence over variables exported in the shell; anything missing from `.env` falls back to the shell environment. The file is optional — if it does not exist, only the shell environment is used. `consts.py` looks for `.env` in the project directory first and then in the current working directory (the project-directory file wins for keys present in both).
+> `.env` 会在启动时自动加载（基于 `python-dotenv`）。`.env` 中的值优先于 shell 中 export 的变量；`.env` 中缺失的项回退到 shell 环境。该文件是可选的——不存在时只使用 shell 环境。`consts.py` 会先在项目目录、再在当前工作目录查找 `.env`（两者都存在时，同名键以项目目录文件为准）。
 
-#### Method 2: Direct Export
+**方式二：直接 export**
 
 ```bash
 # Required
@@ -251,50 +192,52 @@ export VIDEO_DURATION_MINUTES=0.5
 export DEFAULT_VIDEO_MODEL_NAME=dreamina-seedance-2-5-260628
 ```
 
-**Note:** `AGENTKIT_CLOUD_PROVIDER` and `CLOUD_PROVIDER` are both **mandatory** — set them in your `.env` file or export them in every shell you run this sample from, and pass both through to the deployed runtime. `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Without them the SDKs fall back to their Volcano Engine (mainland China) defaults and calls against your BytePlus account fail. `consts.py` sets `CLOUD_PROVIDER=byteplus` as a last-resort fallback inside the agent process, but that does not cover the agentkit SDK or the skill scripts when run standalone, so do not rely on it.
+**注意**：`AGENTKIT_CLOUD_PROVIDER` 与 `CLOUD_PROVIDER` 均为**必填**——请在 `.env` 中设置或在每个运行本样例的 shell 中 export，并在部署时一并传给云端 Runtime。前者由 agentkit SDK 读取，后者由 veADK 读取，用于控制 veADK 的默认 Endpoint、默认模型以及 `BYTEPLUS_*` 凭证到 veADK 内部 `VOLCENGINE_*` 变量的映射。缺少它们时 SDK 会回退到火山引擎（中国大陆）默认值，导致对 BytePlus 账号的调用失败。`consts.py` 会在 Agent 进程内兜底设置 `CLOUD_PROVIDER=byteplus`，但这覆盖不到 agentkit SDK 以及独立运行的技能脚本，请勿依赖。
 
-**Environment Variables Reference:**
+**环境变量参考：**
 
-| Variable | Required | Default | Description |
+| 变量 | 必填 | 默认值 | 说明 |
 |----------|----------|---------|-------------|
-| `BYTEPLUS_ACCESS_KEY` | ✅ | — | BytePlus access key |
-| `BYTEPLUS_SECRET_KEY` | ✅ | — | BytePlus secret key |
-| `AGENTKIT_CLOUD_PROVIDER` | ✅ | — | Points the agentkit SDK at BytePlus |
-| `CLOUD_PROVIDER` | ✅ | — | Points veADK's default endpoints and models at BytePlus (`consts.py` falls back to `byteplus`, but export it anyway) |
-| `MODEL_AGENT_API_KEY` | ✅ | — | ModelArk API key (`ARK_API_KEY` also works — whichever is set is mirrored to the other) |
-| `DATABASE_TOS_BUCKET` | ✅ | — | TOS bucket name |
-| `COMIC_DRAMA_OUTPUT_DIR` | ❌ | `output/` under project dir | Output root directory |
-| `VIDEO_DURATION_MINUTES` | ❌ | `0.5` | Video duration in minutes, supports 0.5/1/2/3/4 (0.5 = 30s) |
-| `DEFAULT_VIDEO_MODEL_NAME` | ❌ | `dreamina-seedance-2-5-260628` | Video generation model name |
+| `BYTEPLUS_ACCESS_KEY` | ✅ | — | BytePlus Access Key |
+| `BYTEPLUS_SECRET_KEY` | ✅ | — | BytePlus Secret Key |
+| `AGENTKIT_CLOUD_PROVIDER` | ✅ | — | 将 agentkit SDK 指向 BytePlus |
+| `CLOUD_PROVIDER` | ✅ | — | 将 veADK 的默认 Endpoint 与模型指向 BytePlus（`consts.py` 有 `byteplus` 兜底，但仍建议显式设置） |
+| `MODEL_AGENT_API_KEY` | ✅ | — | ModelArk API Key（`ARK_API_KEY` 也可用，二者会互相镜像） |
+| `DATABASE_TOS_BUCKET` | ✅ | — | TOS 存储桶名称 |
+| `COMIC_DRAMA_OUTPUT_DIR` | ❌ | 项目目录下的 `output/` | 输出根目录 |
+| `VIDEO_DURATION_MINUTES` | ❌ | `0.5` | 视频时长（分钟），支持 0.5/1/2/3/4（0.5 = 30 秒） |
+| `DEFAULT_VIDEO_MODEL_NAME` | ❌ | `dreamina-seedance-2-5-260628` | 视频生成模型名 |
 
-## Local Execution
+### 调试方法
 
-### Method 1: Use veadk web (Recommended for Debugging)
+**方式一：使用 veadk web（推荐）**
 
-> `veadk web` is a web service based on FastAPI for debugging Agent applications. It starts a web server that loads and runs your agent code, and provides a chat interface where you can interact with the agent and inspect its thought process, tool calls, and model input/output.
+> `veadk web` 是一个基于 FastAPI 的 Web 调试服务。运行后会启动一个加载了本 Agent 代码的 Web 服务器，并提供聊天界面；在界面侧边栏中可以查看 Agent 的思考过程、工具调用以及模型输入输出。
 
-Run it from within the project directory (`comic_drama_gen`):
+在项目目录（`comic_drama_gen`）内运行：
 
 ```bash
 uv run veadk web
 ```
 
-Open `http://localhost:8000` in your browser, select the `comic_drama_gen` agent, enter your story idea, and send.
+浏览器访问 `http://localhost:8000`，选择 `comic_drama_gen` Agent，输入故事创意并发送。
 
-### Method 2: Direct API Call
+**方式二：直接 API 调用**
 
 ```bash
 uv run agent.py
 # Service listens on 0.0.0.0:8000 by default
 ```
 
-**Create a session:**
+创建会话：
+
 ```bash
 curl -X POST 'http://localhost:8000/apps/comic_drama_master/users/u_123/sessions/s_1' \
   -H 'Content-Type: application/json'
 ```
 
-**Send a message:**
+发送消息：
+
 ```bash
 curl 'http://localhost:8000/run_sse' \
   -H 'Content-Type: application/json' \
@@ -310,100 +253,41 @@ curl 'http://localhost:8000/run_sse' \
   }'
 ```
 
-### Example Prompts
-
-| Genre | Example Prompt |
-|-------|---------------|
-| Chinese Mythology | `Sun Wukong battles Erlang Shen, Chinese anime 3D realistic style` |
-| Martial Arts | `Legend of the Condor Heroes, Guo Jing vs Ouyang Feng, live-action version` |
-| Cultivation | `Han Li forming his Nascent Soul in A Record of a Mortal's Journey to Immortality, 2 min video` |
-| Historical | `Jing Ke's last night before assassinating the King of Qin` |
-| Urban | `Office Showdown: Intern's rise to tech CEO, Japanese anime 2D style` |
-| Sci-Fi | `Interstellar agents saving Earth` |
-| Children's | `Little fox searching for star fragments` |
-
-## Directory Structure
-
-```
-comic_drama_gen/
-├── agent.py                # Agent entry (MCP tool registration, skill loading, session storage)
-├── agent.yaml              # Agent configuration (model, system instructions)
-├── consts.py               # Default constants + .env auto-loading
-├── pipeline_guard.py       # Auto-continue guard: keeps the 8-step run going if the model ends a turn between steps
-├── url_registry.py         # Signed-URL registry: restores TOS signed URLs the model truncated
-├── .env.example            # Environment variable template (copy to .env)
-├── .env                    # Environment variable config file (create from .env.example)
-├── pyproject.toml          # Python project configuration
-├── requirements.txt        # Dependency list
-├── scripts/                # Helper scripts directory
-│   └── setup.sh            # Cloud deployment build script (pre-installs video-clip-mcp)
-├── img/                    # Image assets for README
-└── skill/comic-drama-master/
-    ├── SKILL.md             # Master director skill spec (8-step full pipeline)
-    ├── examples/
-    │   └── examples.md      # Complete usage examples
-    ├── references/
-    │   ├── character-designer.md     # Character design specification
-    │   ├── scene-designer.md         # Scene art specification
-    │   ├── screenplay-generator.md   # Screenplay generation specification
-    │   ├── storyboard-director.md    # Storyboard direction specification
-    │   └── video-synthesizer.md      # Video synthesis specification
-    └── scripts/
-        ├── app_config.py         # Video duration config reader
-        ├── task_manager.py       # Task directory management (FIFO cleanup, max 16 tasks)
-        ├── batch_video.py        # Batch video task submit/poll
-        ├── batch_image_generate.py  # Batch parallel image generation
-        ├── create_video_task.py  # Single video task creation
-        ├── query_video_task.py   # Video task status query
-        ├── image_generate.py     # Image generation (base64 direct save)
-        ├── web_search.py         # Web search (for screenplay research)
-        ├── video_merge.py        # ffmpeg video merging
-        ├── video_scorer.py       # AI quality scoring (5 dimensions)
-        ├── verify_task.py        # Output integrity verification
-        ├── tos_upload.py         # TOS upload
-        ├── file_download.py      # Batch file download
-        └── get_aksk.py           # AK/SK credential retrieval
-```
-
-## Output Directory Structure
-
-After each task completes, the `COMIC_DRAMA_OUTPUT_DIR` (defaults to `output/` under the project directory) will contain:
+每个任务完成后，`COMIC_DRAMA_OUTPUT_DIR`（默认为项目目录下的 `output/`）中会生成如下产物：
 
 ```
 {COMIC_DRAMA_OUTPUT_DIR}/
 └── task_20260222_143000_sun_wukong_battle/
-    ├── requirements.md   # Requirements document (with web_search research summary)
-    ├── plot.md           # Chapter-based plot outline (with smart duration allocation)
-    ├── script.md         # Complete dialogue script (with per-second timestamps + per-chapter duration)
-    ├── characters.md     # Character design (STYLE_ANCHOR + character prompts + portrait images)
-    ├── cover.jpg         # Cover image
-    ├── cover.md          # Cover information
-    ├── final_video.md    # Final delivery document (with TOS link)
-    ├── storyboard/       # Storyboards (scene_01.jpg ~ scene_NN.jpg)
-    ├── characters/       # Character portraits (char_*.jpg)
-    ├── videos/           # Scene videos (scene_01.mp4 ~ scene_NN.mp4, smart duration 4~30s)
-    └── final/            # Composited drama (*_final.mp4)
+    ├── requirements.md   # 需求文档（含 web_search 调研摘要）
+    ├── plot.md           # 章节式剧情大纲（含智能时长分配）
+    ├── script.md         # 完整台词剧本（含逐秒时间戳与分章时长）
+    ├── characters.md     # 角色设计（STYLE_ANCHOR + 角色提示词 + 立绘）
+    ├── cover.jpg         # 封面图
+    ├── cover.md          # 封面信息
+    ├── final_video.md    # 最终交付文档（含 TOS 链接）
+    ├── storyboard/       # 分镜图（scene_01.jpg ~ scene_NN.jpg）
+    ├── characters/       # 角色立绘（char_*.jpg）
+    ├── videos/           # 分镜视频（scene_01.mp4 ~ scene_NN.mp4，智能时长 4~30 秒）
+    └── final/            # 合成后的漫剧（*_final.mp4）
 ```
 
-## AgentKit Deployment
+## AgentKit 部署
 
-### Deploy to BytePlus AgentKit Runtime
-
-**Step 0:** If you haven't installed agentkit yet, you can do it locally (inside the Python virtual environment) with:
+**第 0 步**：如尚未安装 agentkit CLI，可在 Python 虚拟环境中安装：
 
 ```bash
 uv pip install agentkit-sdk-python
 ```
 
-**Step 1:** Make sure you are in the current directory (`comic_drama_gen`), then configure AgentKit:
+**第 1 步**：确认当前处于 `comic_drama_gen` 目录，然后配置 AgentKit。
 
-**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first:
+**注意**：以下命令假设 `DATABASE_TOS_BUCKET` 与 `MODEL_AGENT_API_KEY` 已在环境中定义。`agentkit` CLI 自身不读取 `.env`（只有 Agent 进程会在启动时加载），如果变量保存在 `.env` 中，请先导出到当前 shell：
 
 ```bash
 set -a && source ./.env && set +a
 ```
 
-This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
+这同时会导出 `agentkit config` / `agentkit launch` 认证所需的 `BYTEPLUS_ACCESS_KEY` 与 `BYTEPLUS_SECRET_KEY`。
 
 ```bash
 uv run agentkit config \
@@ -417,13 +301,13 @@ uv run agentkit config \
   --launch_type cloud
 ```
 
-**Note**: The `--cloud_provider byteplus` flag is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
+**注意**：`--cloud_provider byteplus` 参数是必需的。缺少它时 CLI 默认使用火山引擎，`agentkit launch` 会在解析账号 ID 时报错 `Volcengine credentials not found (Service: sts)`。
 
-> **Important**: Environment variables exported in your shell are **not** uploaded to the cloud runtime automatically — only the `runtime_envs` entries in `agentkit.yaml` (plus the contents of a local `.env` file, which the deploy step merges in) reach the deployed runtime. If `MODEL_AGENT_API_KEY` is missing from `runtime_envs`, the deployed agent has no ModelArk API key and every image/video generation call fails with a 401. The `agent.py` startup mirrors `MODEL_AGENT_API_KEY` to `ARK_API_KEY`, so this single variable covers the LLM, image, and video calls.
+> **重要**：shell 中 export 的环境变量**不会**自动上传到云端 Runtime——只有 `agentkit.yaml` 中的 `runtime_envs` 条目（加上部署时合并进来的本地 `.env` 内容）会到达云端。若 `runtime_envs` 中缺少 `MODEL_AGENT_API_KEY`，部署后的 Agent 将没有 ModelArk API Key，所有图像/视频生成调用都会返回 401。`agent.py` 启动时会将 `MODEL_AGENT_API_KEY` 镜像为 `ARK_API_KEY`，因此这一个变量即可覆盖 LLM、图像与视频调用。
 
-**Step 2:** Modify the `agentkit.yaml` deployment configuration
+**第 2 步**：修改 `agentkit.yaml` 部署配置。
 
-> Purpose: After modification, it will pre-install video-clip-mcp during the image build phase to accelerate runtime startup.
+> 目的：修改后会在镜像构建阶段预装 video-clip-mcp，加速 Runtime 启动。
 
 ```bash
 # On Linux
@@ -434,39 +318,25 @@ sed -i '' 's/docker_build: {}/docker_build:/' agentkit.yaml && sed -i '' '/docke
   build_script: "scripts\/setup.sh"' agentkit.yaml
 ```
 
-**Step 3:** Deploy the runtime:
+**第 3 步**：部署 Runtime：
 
 ```bash
 uv run agentkit launch
 ```
 
-### Test the Deployed Agent
+部署成功后：
 
-After successful deployment:
+1. 访问 [BytePlus AgentKit 控制台](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
+2. 点击 **Runtime** 查看已部署的 `comic_drama_master`
+3. 获取公网访问域名与 API Key，即可通过 API 调用
 
-1. Visit the [BytePlus AgentKit Console](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
-2. Click **Runtime** to view the deployed agent `comic_drama_master`
-3. Obtain the public access domain and API Key to call via API
-
-#### Page-Based Debugging
-
-The AgentKit agent list page provides a debugging entry point. Click it to debug the agent's features through a visual UI.
-
-![Agent Page Debug 1](./img/agent-test-run-01.png)
-
-![Agent Page Debug 2](./img/agent-test-run-02.png)
-
-#### Command-Line Debugging
-
-Use `agentkit invoke` to initiate debugging directly:
+也可以直接使用 `agentkit invoke` 触发 / 调试：
 
 ```bash
 uv run agentkit invoke '{"prompt": "Sun Wukong battles Erlang Shen, Chinese anime 3D realistic style"}'
 ```
 
-#### API-Based Debugging
-
-**Create a session:**
+或通过公网 API 调试。创建会话：
 
 ```bash
 curl --location --request POST 'https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com/apps/comic_drama_master/users/u_123/sessions/s_124' \
@@ -475,7 +345,7 @@ curl --location --request POST 'https://xxxxx.apigateway-ap-southeast-1.apigw-by
 --data ''
 ```
 
-**Send a message:**
+发送消息：
 
 ```bash
 curl --location 'https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com/run_sse' \
@@ -495,58 +365,83 @@ curl --location 'https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com/run_
 }'
 ```
 
-## Cleanup / Teardown
-
-You can remove your deployed AgentKit runtime with:
+不再需要时，可以清理已部署的 Runtime：
 
 ```bash
 uv run agentkit destroy
 ```
 
-## FAQ
+## 示例提示词
 
-**Video generation task failed (`OutputVideoSensitiveContentDetected`):**
-- When the subject contains martial arts/war/violence elements, the Agent will automatically use euphemistic alternatives
-- If it repeatedly fails, explicitly request "use gentle expressions" in your prompt
+| 题材 | 示例提示词 |
+|-------|---------------|
+| 中国神话 | `Sun Wukong battles Erlang Shen, Chinese anime 3D realistic style` |
+| 武侠 | `Legend of the Condor Heroes, Guo Jing vs Ouyang Feng, live-action version` |
+| 修仙 | `Han Li forming his Nascent Soul in A Record of a Mortal's Journey to Immortality, 2 min video` |
+| 历史 | `Jing Ke's last night before assassinating the King of Qin` |
+| 都市 | `Office Showdown: Intern's rise to tech CEO, Japanese anime 2D style` |
+| 科幻 | `Interstellar agents saving Earth` |
+| 儿童 | `Little fox searching for star fragments` |
 
-**`uv sync` failed:**
-- Ensure Python 3.12+ is installed
-- Try using a mirror: `uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple --refresh`
+## 效果展示
 
-**TOS upload failed:**
-- Confirm that `BYTEPLUS_ACCESS_KEY`, `BYTEPLUS_SECRET_KEY`, and `DATABASE_TOS_BUCKET` are all correctly set
-- Verify that the account has TOS bucket read/write permissions
+AgentKit 的 Agent 列表页面提供了调试入口，点击即可通过可视化 UI 调试 Agent 的各项能力。一次完整运行的实际效果如下：
 
-**Too many task directories:**
-- `task_manager.py` automatically retains the latest 16 tasks (FIFO cleanup policy)
-- Use the `COMIC_DRAMA_OUTPUT_DIR` environment variable to separate test and production outputs
+![Agent 页面调试 1](assets/images/agent-test-run-01.png)
 
-**`.env` file not taking effect:**
-- Confirm the `.env` file is located in the `comic_drama_gen/` directory or in the directory you launch from
-- `.env` values override variables set via `export`; if a value looks wrong, check for a stale entry in `.env`
-- `python-dotenv` is a pinned dependency; re-run `uv sync` / `pip install -r requirements.txt` if the import fails
+![Agent 页面调试 2](assets/images/agent-test-run-02.png)
 
-**`npx` command not found:**
-- Install Node.js 18+ and npm
-- Verify that `npx --version` runs correctly in the terminal
+Agent 会依次完成剧本创作、角色设计、分镜图与分镜视频生成，最后合成完整漫剧并上传 TOS，在最终回复中给出签名下载链接、校验报告与质量评分。
 
-**MCP tool connection error:**
-- Ensure the default MCP port does not conflict
-- Check the Node.js process logs for detailed error messages
+## 常见问题
 
-## Related Resources
+**视频生成任务失败（`OutputVideoSensitiveContentDetected`）？**
+
+- 当题材包含武侠/战争/暴力元素时，Agent 会自动使用委婉的替代表达
+- 如反复失败，可在提示词中显式要求"使用温和的表达方式"
+
+**`uv sync` 失败？**
+
+- 确认已安装 Python 3.12+
+- 尝试使用镜像源：`uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple --refresh`
+
+**TOS 上传失败？**
+
+- 确认 `BYTEPLUS_ACCESS_KEY`、`BYTEPLUS_SECRET_KEY` 与 `DATABASE_TOS_BUCKET` 均已正确设置
+- 确认账号具备 TOS 存储桶的读写权限
+
+**任务目录太多？**
+
+- `task_manager.py` 自动保留最新的 16 个任务（FIFO 清理策略）
+- 可通过 `COMIC_DRAMA_OUTPUT_DIR` 环境变量分离测试与正式输出
+
+**`.env` 文件不生效？**
+
+- 确认 `.env` 位于 `comic_drama_gen/` 目录或启动目录中
+- `.env` 中的值会覆盖 `export` 设置的变量；若某个值看起来不对，检查 `.env` 中是否有过期条目
+- `python-dotenv` 是固定依赖；若导入失败请重新执行 `uv sync` / `pip install -r requirements.txt`
+
+**`npx` 命令找不到？**
+
+- 安装 Node.js 18+ 与 npm
+- 确认终端中 `npx --version` 可正常运行
+
+**MCP 工具连接报错？**
+
+- 确认默认 MCP 端口没有冲突
+- 查看 Node.js 进程日志获取详细错误信息
+
+**已知问题**
+
+- 全片视频风格不一定完全一致：各分镜参考图是独立生成的，可能带来风格差异
+- 图像与视频生成偶尔会超时，需要重试
+
+**相关资源**
 
 - [BytePlus AgentKit](https://docs.byteplus.com/en/docs/agentkit)
-- [BytePlus TOS Object Storage](https://www.byteplus.com/en/product/TOS)
-- [BytePlus AgentKit Console](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
+- [BytePlus TOS 对象存储](https://www.byteplus.com/en/product/TOS)
+- [BytePlus AgentKit 控制台](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
 
-## Code License
+## 代码许可
 
-This project is licensed under the Apache 2.0 License
-
-## Known issues
-
-- Video style is not always consistent across the entire video because reference images are generated independently, which can lead to stylistic differences.
-- Image and video generation will sometimes time out forcing a re-try
-
-
+本工程遵循 Apache 2.0 License

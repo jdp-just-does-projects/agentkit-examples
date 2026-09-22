@@ -22,8 +22,9 @@ logger = logging.getLogger(__name__)
 
 _VALID_DURATIONS = set(range(4, 31))
 _API_BASE = (
-    os.environ.get("MODEL_VIDEO_API_BASE", "https://ark.ap-southeast.bytepluses.com/api/v3")
-    .rstrip("/")
+    os.environ.get(
+        "MODEL_VIDEO_API_BASE", "https://ark.ap-southeast.bytepluses.com/api/v3"
+    ).rstrip("/")
     + "/contents/generations/tasks"
 )
 _MODEL = os.environ.get("DEFAULT_VIDEO_MODEL_NAME") or os.environ.get(
@@ -197,7 +198,9 @@ if __name__ == "__main__":
         "--prompts-file", required=True, help="JSON file containing the list of prompts"
     )
     submit_parser.add_argument(
-        "--first-frames-file", default=None, help="JSON file containing the list of first-frame URLs"
+        "--first-frames-file",
+        default=None,
+        help="JSON file containing the list of first-frame URLs",
     )
     submit_parser.add_argument(
         "--duration",
@@ -212,13 +215,17 @@ if __name__ == "__main__":
     )
 
     # poll subcommand
-    poll_parser = subparsers.add_parser("poll", help="Poll and wait for task completion")
+    poll_parser = subparsers.add_parser(
+        "poll", help="Poll and wait for task completion"
+    )
     poll_parser.add_argument(
         "--task-ids-file",
         required=True,
         help="JSON file containing a {scene_key: task_id} dictionary",
     )
-    poll_parser.add_argument("--interval", type=int, default=30, help="Polling interval (seconds)")
+    poll_parser.add_argument(
+        "--interval", type=int, default=30, help="Polling interval (seconds)"
+    )
 
     args = parser.parse_args()
 

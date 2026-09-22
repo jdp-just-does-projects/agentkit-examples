@@ -109,7 +109,11 @@ def check_artifacts(task_folder: Path, scene_count: int) -> Dict:
                 failures.append(f"storyboard/{msg}")
     else:
         checks.append(
-            {"file": "storyboard/", "passed": False, "detail": "Missing: storyboard/ directory"}
+            {
+                "file": "storyboard/",
+                "passed": False,
+                "detail": "Missing: storyboard/ directory",
+            }
         )
         failures.append("Missing: storyboard/ directory")
 
@@ -140,7 +144,11 @@ def check_artifacts(task_folder: Path, scene_count: int) -> Dict:
             failures.append("Empty directory: characters/")
     else:
         checks.append(
-            {"file": "characters/", "passed": False, "detail": "Missing: characters/ directory"}
+            {
+                "file": "characters/",
+                "passed": False,
+                "detail": "Missing: characters/ directory",
+            }
         )
         failures.append("Missing: characters/ directory")
 
@@ -280,7 +288,9 @@ def check_durations(durations: List[int], expected_total: Optional[int] = None) 
         )
 
     # Distribution statistics
-    short_cut = [d for d in durations if MIN_SCENE_DURATION <= d <= 6]  # tense quick cuts
+    short_cut = [
+        d for d in durations if MIN_SCENE_DURATION <= d <= 6
+    ]  # tense quick cuts
     standard = [d for d in durations if 7 <= d <= 10]  # standard narration
     climax = [d for d in durations if 11 <= d <= 15]  # climax build-up
     epic = [d for d in durations if 16 <= d <= MAX_SCENE_DURATION]  # epic long takes
@@ -376,16 +386,25 @@ def _score_plot_coherence(task_folder: Path, scene_count: int) -> Dict:
     chapter_markers = set(
         re.findall(r"(?im)^\s*(?:#{1,4}\s*)?(?:chapter|scene)\s+(\d+)\s*:", plot)
     ) | set(
-        re.findall(r"(?m)^\s*(?:#{1,4}\s*)?(?:第\s*([一二三四五六七八九十\d]+)\s*章|场景\s*(\d+))", plot)
+        re.findall(
+            r"(?m)^\s*(?:#{1,4}\s*)?(?:第\s*([一二三四五六七八九十\d]+)\s*章|场景\s*(\d+))",
+            plot,
+        )
     )
     if len(chapter_markers) >= scene_count:
         score += 4
-        comments.append(f"chapter count {len(chapter_markers)} ≥ scene count {scene_count}")
+        comments.append(
+            f"chapter count {len(chapter_markers)} ≥ scene count {scene_count}"
+        )
     elif len(chapter_markers) >= scene_count * 0.7:
         score += 2
-        comments.append(f"chapter count {len(chapter_markers)} slightly below scene count {scene_count}")
+        comments.append(
+            f"chapter count {len(chapter_markers)} slightly below scene count {scene_count}"
+        )
     else:
-        comments.append(f"chapter count {len(chapter_markers)} far below scene count {scene_count}")
+        comments.append(
+            f"chapter count {len(chapter_markers)} far below scene count {scene_count}"
+        )
 
     # Check duration markers ("6s", "6 sec", "6 seconds", "6秒")
     duration_markers = re.findall(r"(?i)\d+\s*(?:seconds?|secs?|s\b|秒)", plot)
@@ -394,7 +413,9 @@ def _score_plot_coherence(task_folder: Path, scene_count: int) -> Dict:
         comments.append("duration markers complete")
     elif duration_markers:
         score += 1
-        comments.append(f"duration markers incomplete ({len(duration_markers)}/{scene_count})")
+        comments.append(
+            f"duration markers incomplete ({len(duration_markers)}/{scene_count})"
+        )
 
     # Check content richness
     if len(plot) > 500:
@@ -462,7 +483,8 @@ def _score_dialogue_richness(task_folder: Path, durations: List[int]) -> Dict:
     # plainly before a colon (`Han Li: "..."` / `韩立："..."`)
     speaker_patterns = re.findall(r"\*\*([^*\n]{1,30})\*\*", script)
     speaker_patterns += re.findall(
-        r"(?m)^\s*([A-Z][A-Za-z .'\-]{1,30}?|[\u4e00-\u9fff·]{1,10})\s*[:：]\s*[\"“]", script
+        r"(?m)^\s*([A-Z][A-Za-z .'\-]{1,30}?|[\u4e00-\u9fff·]{1,10})\s*[:：]\s*[\"“]",
+        script,
     )
     unique_speakers = len({s.strip().lower() for s in speaker_patterns})
     if unique_speakers >= 2:
@@ -473,7 +495,9 @@ def _score_dialogue_richness(task_folder: Path, durations: List[int]) -> Dict:
         comments.append("only 1 speaking character")
 
     # Check timestamps ("0:04", "6s", "6 seconds", "6秒", "T=4")
-    timestamps = re.findall(r"(?i)\d+:\d+|\d+\s*(?:seconds?|secs?|s\b|秒)|T=\d+", script)
+    timestamps = re.findall(
+        r"(?i)\d+:\d+|\d+\s*(?:seconds?|secs?|s\b|秒)|T=\d+", script
+    )
     if len(timestamps) >= len(durations):
         score += 2
         comments.append("per-scene timestamps complete")
@@ -484,7 +508,9 @@ def _score_dialogue_richness(task_folder: Path, durations: List[int]) -> Dict:
     # Check scene ending states (the screenplay template — English by default, Chinese also recognised — writes
     # "### Scene End State")
     end_states = re.findall(
-        r"(?:scene end state|ending state|end state|场景结束状态|结束状态)", script, re.IGNORECASE
+        r"(?:scene end state|ending state|end state|场景结束状态|结束状态)",
+        script,
+        re.IGNORECASE,
     )
     if len(end_states) >= len(durations) * 0.5:
         score += 2
@@ -528,13 +554,19 @@ def _score_visual_quality(task_folder: Path, scene_count: int) -> Dict:
         ]
         if len(sb_files) >= scene_count:
             score += 3
-            comments.append(f"storyboard images complete ({len(sb_files)}/{scene_count})")
+            comments.append(
+                f"storyboard images complete ({len(sb_files)}/{scene_count})"
+            )
         elif len(sb_files) >= scene_count * 0.7:
             score += 2
-            comments.append(f"storyboard images mostly complete ({len(sb_files)}/{scene_count})")
+            comments.append(
+                f"storyboard images mostly complete ({len(sb_files)}/{scene_count})"
+            )
         else:
             score += 1
-            comments.append(f"storyboard images insufficient ({len(sb_files)}/{scene_count})")
+            comments.append(
+                f"storyboard images insufficient ({len(sb_files)}/{scene_count})"
+            )
     else:
         comments.append("storyboard/ missing")
 
@@ -624,7 +656,9 @@ def _score_emotional_tension(task_folder: Path, durations: List[int]) -> Dict:
         std_dev = variance**0.5
         if std_dev >= 3:
             score += 3
-            comments.append(f"large duration variation (σ={std_dev:.1f}s), strong pacing")
+            comments.append(
+                f"large duration variation (σ={std_dev:.1f}s), strong pacing"
+            )
         elif std_dev >= 2:
             score += 2
             comments.append(f"some duration variation (σ={std_dev:.1f}s)")
@@ -632,7 +666,9 @@ def _score_emotional_tension(task_folder: Path, durations: List[int]) -> Dict:
             score += 1
             comments.append(f"durations fairly uniform (σ={std_dev:.1f}s), flat pacing")
         else:
-            comments.append(f"no duration variation (σ={std_dev:.1f}s), monotonous pacing")
+            comments.append(
+                f"no duration variation (σ={std_dev:.1f}s), monotonous pacing"
+            )
 
     # Check that the climax is in the latter half (longer scenes should cluster in the middle/late part)
     if len(durations) >= 4:
@@ -902,7 +938,9 @@ def _build_summary(artifacts: Dict, durations: Dict, scores: Dict, passed: bool)
     lines.append("")
 
     # Duration compliance
-    lines.append(f"⏱️  Duration compliance: {'✅ PASSED' if durations['passed'] else '❌ FAILED'}")
+    lines.append(
+        f"⏱️  Duration compliance: {'✅ PASSED' if durations['passed'] else '❌ FAILED'}"
+    )
     lines.append(f"   Scene count: {durations['scene_count']}")
     lines.append(f"   Durations: {durations['durations']}")
     lines.append(f"   Total duration: {durations['actual_total_seconds']}s")
@@ -938,9 +976,13 @@ def _build_summary(artifacts: Dict, durations: Dict, scores: Dict, passed: bool)
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Comic drama task artifact verification tool")
+    parser = argparse.ArgumentParser(
+        description="Comic drama task artifact verification tool"
+    )
     parser.add_argument("task_folder", help="Path to the task directory")
-    parser.add_argument("--scene-count", type=int, default=None, help="Number of scenes")
+    parser.add_argument(
+        "--scene-count", type=int, default=None, help="Number of scenes"
+    )
     parser.add_argument(
         "--durations",
         type=str,
@@ -948,15 +990,22 @@ if __name__ == "__main__":
         help="List of durations (comma-separated), e.g.: 6,8,12,14,11,9",
     )
     parser.add_argument(
-        "--expected-total", type=int, default=None, help="Expected total duration in seconds, e.g.: 60"
+        "--expected-total",
+        type=int,
+        default=None,
+        help="Expected total duration in seconds, e.g.: 60",
     )
     parser.add_argument(
         "--auto",
         action="store_true",
         help="Auto-extract scene_count and durations from plot.md/script.md",
     )
-    parser.add_argument("--verbose", action="store_true", help="Output detailed information")
-    parser.add_argument("--json", action="store_true", help="Output JSON only (no summary)")
+    parser.add_argument(
+        "--verbose", action="store_true", help="Output detailed information"
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="Output JSON only (no summary)"
+    )
 
     args = parser.parse_args()
 

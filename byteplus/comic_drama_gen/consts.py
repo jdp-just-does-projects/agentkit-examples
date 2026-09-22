@@ -29,7 +29,9 @@ DEFAULT_VIDEO_MODEL_NAME = "dreamina-seedance-2-5-260628"
 DEFAULT_VIDEO_MODEL_API_BASE = "https://ark.ap-southeast.bytepluses.com/api/v3/"
 
 DEFAULT_IMAGE_GENERATE_MODEL_NAME = "dola-seedream-5-0-pro-260628"
-DEFAULT_IMAGE_GENERATE_MODEL_API_BASE = "https://ark.ap-southeast.bytepluses.com/api/v3/"
+DEFAULT_IMAGE_GENERATE_MODEL_API_BASE = (
+    "https://ark.ap-southeast.bytepluses.com/api/v3/"
+)
 
 
 # Directories searched for a `.env` file, highest priority first. The current
@@ -114,7 +116,9 @@ def set_veadk_environment_variables():
 
     # TOS defaults for the skill's upload script (subprocesses inherit these).
     os.environ.setdefault("DATABASE_TOS_REGION", DEFAULT_REGION)
-    os.environ.setdefault("DATABASE_TOS_ENDPOINT", f"tos-{DEFAULT_REGION}.bytepluses.com")
+    os.environ.setdefault(
+        "DATABASE_TOS_ENDPOINT", f"tos-{DEFAULT_REGION}.bytepluses.com"
+    )
 
     # The skill scripts read ARK_API_KEY while veadk reads MODEL_AGENT_API_KEY;
     # mirror whichever one is set so a single key works for both.
