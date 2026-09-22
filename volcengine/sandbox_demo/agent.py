@@ -32,16 +32,16 @@ for _path in (str(_AGENT_DIR), str(_AGENT_DIR.parent)):
 # switches all of its defaults to BytePlus when CLOUD_PROVIDER=byteplus is set
 # in the shell; setting our own MODEL_* variables first keeps this agent
 # pointed at Volcano Engine regardless.
-from consts import set_veadk_environment_variables
+from consts import set_veadk_environment_variables  # noqa: E402
 
 set_veadk_environment_variables()
 
-from agentkit.apps import AgentkitAgentServerApp, AgentkitSimpleApp
-from google.adk.models.lite_llm import LiteLlm
-from veadk import Runner
-from veadk.agent_builder import AgentBuilder
-from veadk.models.ark_llm import ArkLlm
-from veadk.memory.short_term_memory import ShortTermMemory
+from agentkit.apps import AgentkitAgentServerApp, AgentkitSimpleApp  # noqa: E402
+from google.adk.models.lite_llm import LiteLlm  # noqa: E402
+from veadk import Runner  # noqa: E402
+from veadk.agent_builder import AgentBuilder  # noqa: E402
+from veadk.models.ark_llm import ArkLlm  # noqa: E402
+from veadk.memory.short_term_memory import ShortTermMemory  # noqa: E402
 
 import pipeline_guard  # noqa: E402
 
@@ -74,8 +74,8 @@ for _model_cls in (LiteLlm, ArkLlm):
 # the case as of google-adk 2.6.2; recheck on upgrades. Fall back to
 # json-repair, and log the raw payload so genuinely unrecoverable calls can be
 # diagnosed instead of guessing at the model output.
-import google.adk.models.lite_llm as _lite_llm
-from json_repair import repair_json
+import google.adk.models.lite_llm as _lite_llm  # noqa: E402
+from json_repair import repair_json  # noqa: E402
 
 _original_parse_tool_call_arguments = _lite_llm._parse_tool_call_arguments
 
