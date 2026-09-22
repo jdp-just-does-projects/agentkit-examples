@@ -146,11 +146,15 @@ def main() -> None:
     args = ap.parse_args()
     spaces = args.space or _split_csv(os.getenv("SKILL_SPACE_ID"))
     if not spaces:
-        sys.exit("Pass --space ss-... or set SKILL_SPACE_ID (run `agentkit skill spaces` to list them)")
+        sys.exit(
+            "Pass --space ss-... or set SKILL_SPACE_ID (run `agentkit skill spaces` to list them)"
+        )
 
     provider = (os.getenv("CLOUD_PROVIDER") or DEFAULT_CLOUD_PROVIDER).lower()
     if provider not in DEFAULT_REGIONS:
-        sys.exit(f"Unsupported CLOUD_PROVIDER '{provider}' (expected byteplus or volcengine)")
+        sys.exit(
+            f"Unsupported CLOUD_PROVIDER '{provider}' (expected byteplus or volcengine)"
+        )
     os.environ["CLOUD_PROVIDER"] = provider  # VeTOS picks its TOS endpoint from this
 
     if provider == "byteplus":
@@ -192,8 +196,10 @@ def main() -> None:
     ident = ve_request(
         request_body={},
         action="GetCallerIdentity",
-        ak=ak, sk=sk,
-        service="sts", version="2018-01-01",
+        ak=ak,
+        sk=sk,
+        service="sts",
+        version="2018-01-01",
         region=region,
         host=sts_host,
     )
@@ -206,7 +212,9 @@ def main() -> None:
     object_key = f"uploads/{datetime.now().strftime('%Y%m%d_%H%M%S')}/{skill_name}.zip"
     tos = VeTOS(ak=ak, sk=sk, session_token="", bucket_name=bucket, region=region)
     if not tos.bucket_exists(bucket) and not tos.create_bucket(bucket):
-        sys.exit(f"Cannot access or create TOS bucket {bucket} — is TOS enabled on this account?")
+        sys.exit(
+            f"Cannot access or create TOS bucket {bucket} — is TOS enabled on this account?"
+        )
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp = Path(tmp_dir) / f"{skill_name}.zip"
         tmp.write_bytes(zip_skill(skill_dir, skill_name))
@@ -216,7 +224,8 @@ def main() -> None:
     # GET (the signed URL is method-scoped to GET; a HEAD would 403)
     probe = requests.get(
         tos.build_tos_signed_url(object_key=object_key, bucket_name=bucket),
-        headers={"Range": "bytes=0-0"}, timeout=15,
+        headers={"Range": "bytes=0-0"},
+        timeout=15,
     )
     if probe.status_code not in (200, 206):
         sys.exit(f"Upload verification failed (HTTP {probe.status_code}) for {tos_url}")
@@ -226,7 +235,8 @@ def main() -> None:
     resp = ve_request(
         request_body={"TosUrl": tos_url, "SkillSpaces": spaces},
         action="CreateSkill",
-        ak=ak, sk=sk,
+        ak=ak,
+        sk=sk,
         service=os.getenv("AGENTKIT_TOOL_SERVICE_CODE", "agentkit"),
         version=API_VERSION,
         region=region,
@@ -241,8 +251,12 @@ def main() -> None:
     print(json.dumps(result, indent=2, ensure_ascii=False))
     skill_id = result.get("Id", "<s-...>") if isinstance(result, dict) else "<s-...>"
     print(f"\nNext: agentkit skill show {skill_id}      # wait until status is running")
-    print(f"Then: agentkit harness set --skills {spaces[0]}:{skill_id}   # just this skill")
-    print(f"  or: agentkit harness set --skills {spaces[0]}               # whole space")
+    print(
+        f"Then: agentkit harness set --skills {spaces[0]}:{skill_id}   # just this skill"
+    )
+    print(
+        f"  or: agentkit harness set --skills {spaces[0]}               # whole space"
+    )
 
 
 if __name__ == "__main__":
