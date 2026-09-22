@@ -30,20 +30,20 @@ for _path in (str(_AGENT_DIR), str(_AGENT_DIR.parent)):
 # veadk resolves CLOUD_PROVIDER, endpoints, and credentials once at import
 # time, so the environment must be fully populated before any veadk (or
 # agentkit, which may pull in veadk) import below.
-from consts import set_veadk_environment_variables
+from consts import set_veadk_environment_variables  # noqa: E402
 
 set_veadk_environment_variables()
 
-from agentkit.apps import AgentkitAgentServerApp
-from google.adk.models.lite_llm import LiteLlm
-from google.genai import types
-from veadk import Agent
-from veadk.memory.short_term_memory import ShortTermMemory
-from veadk.models.ark_llm import ArkLlm
-from veadk.tools.builtin_tools.image_generate import image_generate
-from veadk.tools.builtin_tools.video_generate import video_generate
+from agentkit.apps import AgentkitAgentServerApp  # noqa: E402
+from google.adk.models.lite_llm import LiteLlm  # noqa: E402
+from google.genai import types  # noqa: E402
+from veadk import Agent  # noqa: E402
+from veadk.memory.short_term_memory import ShortTermMemory  # noqa: E402
+from veadk.models.ark_llm import ArkLlm  # noqa: E402
+from veadk.tools.builtin_tools.image_generate import image_generate  # noqa: E402
+from veadk.tools.builtin_tools.video_generate import video_generate  # noqa: E402
 
-from prompt import PROMPT_AD_VIDEO_AGENT
+from prompt import PROMPT_AD_VIDEO_AGENT  # noqa: E402
 
 import pipeline_guard  # noqa: E402
 import url_registry  # noqa: E402
@@ -77,8 +77,8 @@ for _model_cls in (LiteLlm, ArkLlm):
 # JSONDecodeError. Still the case as of google-adk 2.6.2; recheck on upgrades.
 # Fall back to json-repair, and log the raw payload so genuinely unrecoverable
 # calls can be diagnosed instead of guessing at the model output.
-import google.adk.models.lite_llm as _lite_llm
-from json_repair import repair_json
+import google.adk.models.lite_llm as _lite_llm  # noqa: E402
+from json_repair import repair_json  # noqa: E402
 
 _original_parse_tool_call_arguments = _lite_llm._parse_tool_call_arguments
 

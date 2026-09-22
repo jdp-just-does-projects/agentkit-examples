@@ -1,150 +1,113 @@
-# Ad Video Generation Agent - E-commerce Marketing Videos
+# 营销视频生成 Agent（BytePlus 版）
 
-**IMPORTANT**: This demo was tested with Python 3.12, but other demos here require other versions of Python. We recommend installing and managing multiple versions of Python with [mise](https://mise.jdx.dev/getting-started.html).
+> English documentation: [README_en.md](README_en.md)
 
-This is a single-agent e-commerce marketing video generator based on BytePlus AgentKit and VeADK.
+## 概述
 
-When given product information (product name, selling points, target audience, usage scenarios, style preferences, and an optional product image URL), it will:
+本样例是一个基于 BytePlus AgentKit 与 VeADK 的单智能体电商营销视频生成器。
 
-- Plan a 4-part marketing story (hook → scenario → selling-point close-up → call-to-action)
-- Generate one 2x2-grid marketing story reference image containing all four storyboard panels
-- Show the reference image to the user as an intermediate result
-- Generate one continuous marketing short video from the reference image (9:16, 1080P, 15 seconds by default, up to 30 seconds on request)
+输入商品信息（商品名称、卖点、目标人群、使用场景、风格偏好，以及可选的商品图片 URL）后，Agent 会：
 
-## Overview
+- 规划一个四段式营销故事（开场吸引 → 场景带入 → 卖点特写 → 行动号召）
+- 生成一张包含四格分镜的 2x2 营销故事参考图
+- 将参考图作为中间结果展示给用户
+- 基于参考图生成一条连续的营销短视频（默认 9:16、1080P、15 秒，最长可到 30 秒）
 
-This sample uses a deliberately lightweight single-agent architecture: one Root Agent directly calls the built-in `image_generate` and `video_generate` tools to complete the full workflow — marketing story planning, reference image generation, image-to-video generation, and result preview. There is no candidate generation, quality evaluation, video stitching, or TOS upload; for those, see the `ad_video_gen_seq` sample.
+本样例刻意采用轻量的单智能体架构：一个 Root Agent 直接调用内置的 `image_generate` 与 `video_generate` 工具完成完整流程。不包含候选视频生成、质量评估、视频拼接与 TOS 上传，这些能力请参考 `ad_video_gen_seq` 样例。
 
-![Architecture](img/architecture.png)
+![架构图](assets/images/architecture.png)
 
-<details>
-<summary>Mermaid source</summary>
+（架构图的 Mermaid 源码见 [README_en.md](README_en.md)）
 
-```mermaid
-flowchart TB
-    user(["User<br/>product brief + optional product image URL"])
+## 核心功能
 
-    subgraph runtime["AgentKit Runtime — agent.py"]
-        direction TB
-        app["AgentkitAgentServerApp<br/>HTTP :8000"]
-        mem[("ShortTermMemory<br/>backend = local")]
+- **商品信息理解**：从商品名称、卖点、目标人群、使用场景与风格偏好中提取营销诉求
+- **营销故事规划**：自动设计四段式营销故事，并映射到一张 2x2 分镜网格图上
+- **商品参考图输入**：公网可访问的商品图片 URL 会以图生图参考的形式传给图像模型，保持商品外观、包装与配色一致
+- **图生视频**：2x2 分镜图通过 `reference_images` 参数（而非首尾帧）传给 Dreamina Seedance 2.5，生成一条连续视频
+- **可预览输出**：结果以 Markdown 图片与 HTML 视频标签返回，可在 AgentKit 调试页面直接预览
+- **默认英文、跟随用户语言**：Agent 默认以英文规划与回复；用户使用其他语言时会自动切换（见 [`prompt.py`](prompt.py) 中的 `# Language` 一节）
+- **视频无口播**：视频提示词只要求纯音乐与环境音，不包含对白、旁白或歌词，信息由画面、运镜与简短的画面文字传达
 
-        subgraph rootagent["root_agent — veadk Agent"]
-            direction TB
-            llm["deepseek-v4-pro-260425<br/>instruction: PROMPT_AD_VIDEO_AGENT<br/>max_output_tokens = 18000"]
-            guard["pipeline_guard.py<br/>after_model / after_tool callbacks<br/>required tool: video_generate"]
-            registry["url_registry.py<br/>before_tool / after_tool callbacks"]
-        end
+## Agent 能力
 
-        imgtool["image_generate<br/>veadk builtin tool"]
-        vidtool["video_generate<br/>veadk builtin tool"]
-    end
+| 组件 | 说明 |
+| --- | --- |
+| **Agent 服务** | [`agent.py`](agent.py) - AgentKit 服务入口与 `root_agent` 定义 |
+| **Agent 提示词** | [`prompt.py`](prompt.py) - 单智能体营销工作流提示词 |
+| **自动续跑守卫** | [`pipeline_guard.py`](pipeline_guard.py) - 若模型在 `video_generate` 运行前就以纯文本结束回合，会注入 `continue_pipeline` 工具调用让流程继续，用户无需手动输入"继续" |
+| **签名 URL 注册表** | [`url_registry.py`](url_registry.py) - 工具返回的 TOS 预签名 URL 常被模型在后续调用中截断导致 `403 Forbidden`；注册表记录每个工具返回的 URL，并在下一次工具调用前还原完整签名 URL |
+| **模型默认值** | [`consts.py`](consts.py) - VeADK 使用的默认模型名与 API 地址 |
+| **短期记忆** | 维护会话上下文，保证多轮对话连续性 |
 
-    subgraph ark["BytePlus ModelArk"]
-        direction TB
-        seedream["Seedream 5.0 Pro<br/>dola-seedream-5-0-pro-260628"]
-        seedance["Seedance 2.5<br/>dreamina-seedance-2-5-260628"]
-    end
+## 目录结构说明
 
-    tos[("TOS<br/>pre-signed image / video URLs")]
-
-    user -- "1 · prompt" --> app
-    app <--> mem
-    app --> llm
-
-    llm -- "2 · exactly one task:<br/>a single 2x2 storyboard grid" --> imgtool
-    imgtool --> seedream --> tos
-    imgtool -. "signed grid image URL" .-> llm
-
-    llm -- "3 · reference_images = grid URL<br/>1080p · 15 s · 9:16 · no speech" --> vidtool
-    vidtool --> seedance --> tos
-    vidtool -. "signed video URL" .-> llm
-
-    llm -- "4 · Markdown image + HTML video tag" --> user
-
-    guard -. "injects continue_pipeline when a turn<br/>would end before video_generate ran" .-> llm
-    registry -. "restores the full signed URL<br/>in the next tool call's arguments" .-> vidtool
-
-    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
-    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
-    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
-    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
-    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
-    class llm,guard,registry agent
-    class imgtool,vidtool,app tool
-    class seedream,seedance ext
-    class tos,mem store
-    class user actor
-    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
-    style rootagent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
-    style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
+```bash
+ad_video_gen
+├── LICENSE               # 代码许可（Apache 2.0）
+├── README.md             # 中文说明文档（本文件）
+├── README_en.md          # 英文说明文档
+├── project.yaml          # 项目信息元数据
+├── agent.py              # 主程序入口，定义 root_agent 与 AgentKit 服务
+├── prompt.py             # 营销视频工作流提示词
+├── consts.py             # 默认模型名、API 地址与 .env 加载逻辑
+├── pipeline_guard.py     # 自动续跑守卫回调
+├── url_registry.py       # 签名 URL 注册表回调
+├── assets
+│   └── images            # 架构图等静态资源
+├── .env.example          # 环境变量示例文件
+├── pyproject.toml        # 项目依赖管理文件（uv）
+└── requirements.txt      # 项目依赖管理文件（pip）
 ```
 
-</details>
+## 本地运行
 
-Key features include:
+**注意**：本样例在 Python 3.12 下测试通过，仓库中其他样例可能需要不同的 Python 版本，推荐使用 [mise](https://mise.jdx.dev/getting-started.html) 管理多版本 Python。
 
-- **Product information understanding**: extracts marketing requirements from product name, selling points, target audience, usage scenarios, and style preferences
-- **Marketing story planning**: automatically designs a 4-part marketing story mapped onto a single 2x2 storyboard grid
-- **Product image reference input**: publicly accessible product image URLs are passed to the image model as image-to-image references, preserving product appearance, packaging, and colors
-- **Image-to-video generation**: the 2x2 grid image is passed to Dreamina Seedance 2.5 via `reference_images` (not as a first/last frame) to generate one continuous video
-- **Preview-ready output**: results are returned as Markdown images and an HTML video tag, previewable directly in the AgentKit debug page
-- **English by Default**: The agent plans, writes its image/video prompts, and replies in English by default; if you write in another language it switches to that language for all of its output so the results are easy to review (see the `# Language` section in [`prompt.py`](prompt.py))
-- **No speech in the video**: the video prompt asks for instrumental background music and ambient sound only — no dialogue, voiceover, narration, or lyrics — so the message is carried by visuals, motion, and short on-screen text
+### 前置准备
 
-## Agent Capabilities
+**BytePlus 访问凭证**
 
-| Component | Description |
-| --- | --- |
-| **Agent Service** | [`agent.py`](agent.py) - AgentKit service entry and `root_agent` definition |
-| **Agent Prompt** | [`prompt.py`](prompt.py) - The single-agent marketing workflow prompt |
-| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - keeps the multi-step run going in one turn: if the model ends a turn with a text-only progress note before `video_generate` has run, the guard injects a `continue_pipeline` tool call so the user never has to type "continue" |
-| **Signed-URL Registry** | [`url_registry.py`](url_registry.py) - the image/video tools return pre-signed TOS URLs whose signature is in the query string; models often drop or truncate that query string when copying a URL into a later tool call, which TOS rejects with `403 Forbidden`. The registry records every URL a tool returns and restores the full signed URL before the next tool runs |
-| **Model Defaults** | [`consts.py`](consts.py) - Default model names and API bases for VeADK |
-| **Short-term Memory** | Session context maintenance to preserve conversational continuity |
+请先配置 IAM 用户并创建 Access Key / Secret Key，同时为该用户授予以下权限：
 
-## Quick Start
+- `AgentKitFullAccess`（AgentKit 完全访问）
+- `APMPlusServerFullAccess`（APMPlus 完全访问）
 
-### Prerequisites
+在 BytePlus 控制台搜索 "ModelArk"，在 "Model activation" 页面确认以下模型已开通：
 
-#### BytePlus Access Credentials
+- **文本模型**：DeepSeek V4 Pro（模型 ID：`deepseek-v4-pro-260425`）
+- **图像模型**：Seedream 5.0 Pro（模型 ID：`dola-seedream-5-0-pro-260628`）
+- **视频模型**：Dreamina Seedance 2.5（模型 ID：`dreamina-seedance-2-5-260628`，支持最长 30 秒的视频片段）
 
-Make sure you have configured an IAM user, created a new Access Key / Secret Key pair, and that you have assigned the following permissions to the user:
+最后在 "API Keys" 页面创建并保存一个 API Key，后续配置环境变量时会用到。
 
-- `AgentKitFullAccess` (AgentKit full access)
-- `APMPlusServerFullAccess` (APMPlus full access)
+### 依赖安装
 
-In the web console, open the product search dropdown and search for "ModelArk". Under "Model activation" make sure the following models are enabled:
-
-- **Text:** DeepSeek V4 Pro (model ID: `deepseek-v4-pro-260425`)
-- **Images:** Seedream 5.0 Pro (model ID: `dola-seedream-5-0-pro-260628`)
-- **Video:** Dreamina Seedance 2.5 (model ID: `dreamina-seedance-2-5-260628`) — supports video clips up to 30 seconds long
-
-**Finally, from the "API Keys" page, create a new key and save it, we'll need it later on (see *Configure Environment Variables* below).**
-
-### Install Dependencies
-
-*We recommend using uv to manage Python dependencies*
-
-Once UV is installed, set up with:
+推荐使用 `uv` 管理 Python 依赖：
 
 ```bash
 uv sync
 ```
 
-### Configure Environment Variables
-
-Set the following environment variables — either export them in your shell, or copy [`.env.example`](.env.example) to `.env` (in the project directory or in the directory you launch from) and fill it in. `.env` is loaded automatically at startup (see [`consts.py`](consts.py)) and is optional; values in `.env` take precedence over variables exported in the shell, and anything missing from `.env` falls back to the shell environment. `.env` only applies to local runs — for cloud deploys pass values through `agentkit config --runtime_envs ...` (see below):
+或者使用 `pip` 安装：
 
 ```bash
-export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # Get from BytePlus ModelArk
+pip install -r requirements.txt
+```
+
+### 环境准备
+
+设置以下环境变量：可以直接在 shell 中 export，也可以将 [`.env.example`](.env.example) 复制为 `.env` 并填写。`.env` 会在启动时自动加载（见 [`consts.py`](consts.py)），其中的值优先于 shell 环境变量；`.env` 只对本地运行生效，云端部署需通过 `agentkit config --runtime_envs ...` 传入（见下文）：
+
+```bash
+export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # 从 BytePlus ModelArk 获取
 export AGENTKIT_CLOUD_PROVIDER=byteplus
 export CLOUD_PROVIDER=byteplus
 ```
 
-**Note:** `AGENTKIT_CLOUD_PROVIDER` and `CLOUD_PROVIDER` are both **mandatory** — export them in every shell you run this sample from, and pass both through to the deployed runtime. `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Without them the SDKs fall back to their Volcano Engine (mainland China) defaults and calls against your BytePlus account fail. `consts.py` sets `CLOUD_PROVIDER=byteplus` as a last-resort fallback inside the agent process, but that does not cover the agentkit SDK or the tools when run standalone, so do not rely on it.
+**注意**：`AGENTKIT_CLOUD_PROVIDER` 与 `CLOUD_PROVIDER` 均为**必填**。前者由 agentkit SDK 读取，后者由 veADK 读取，用于控制默认 Endpoint、默认模型以及 `BYTEPLUS_*` 凭证到 veADK 内部 `VOLCENGINE_*` 变量的映射。缺少它们时 SDK 会回退到火山引擎（中国大陆）默认值，导致对 BytePlus 账号的调用失败。
 
-The agent, image, and video model names and API bases default to the values in [`consts.py`](consts.py) (`deepseek-v4-pro-260425`, `dola-seedream-5-0-pro-260628`, and `dreamina-seedance-2-5-260628` on the `ap-southeast` ModelArk endpoint). To override any of them, set the corresponding environment variables before starting the agent:
+Agent、图像与视频模型名及 API 地址默认取 [`consts.py`](consts.py) 中的值，如需覆盖：
 
 ```bash
 export MODEL_AGENT_NAME=deepseek-v4-pro-260425
@@ -152,52 +115,37 @@ export MODEL_IMAGE_NAME=dola-seedream-5-0-pro-260628
 export MODEL_VIDEO_NAME=dreamina-seedance-2-5-260628
 ```
 
-## Local Execution
+### 调试方法
 
-The simplest way to debug locally is with `veadk web`:
+本地调试最简单的方式是使用 `veadk web`：
 
-> `veadk web` is a web service based on FastAPI for debugging Agent applications. When you run this command, it starts a web server that loads and runs your agentkit agent code, while also providing a chat interface where you can interact with the agent. In the sidebar or a specific panel of the interface, you can view the details of the agent's execution, including the Thought Process, Tool calls, and model input/output.
+> `veadk web` 是一个基于 FastAPI 的 Web 调试服务。运行后会启动一个加载了本 Agent 代码的 Web 服务器，并提供聊天界面；在界面侧边栏中可以查看 Agent 的思考过程、工具调用以及模型输入输出。
 
-Running it from within the project directory is straightforward:
+在项目目录内运行：
 
 ```bash
 uv run veadk web
 ```
 
-Visit `http://localhost:8000` in your browser, select the `ad_video_gen` agent, enter a prompt, and click "Send".
+浏览器访问 `http://localhost:8000`，选择 `ad_video_gen` Agent，输入提示词并发送即可。
 
-### Example Prompts
+## AgentKit 部署
 
-- "Please generate a product showcase video for a bayberry drink, vertical 9:16, fresh summer style. Selling points: natural bayberry, sweet and sour, refreshing when chilled, suitable for hot pot, barbecue, and gatherings."
-- "Please generate an e-commerce marketing video for milky soft pull-apart toast. Usage scenarios: breakfast, afternoon tea, camping picnic. Key selling points: rich milky aroma, soft texture, crispy outside and soft inside after toasting, suitable for family sharing. Style: warm, bright, appetizing."
-- "Generate a 30-second product seeding video for a wabi-sabi scented candle. Target audience: urban professionals who like minimalist home decor and bedtime relaxation. Selling points: natural soy wax, woody scent, reusable cement jar. Visual style: restrained, quiet, premium."
-
-**Expected Behavior:**
-
-1. The agent plans a 4-part marketing story from your product description
-2. It generates one 2x2 storyboard reference image and displays it immediately
-3. It then generates one continuous marketing video from the reference image (this can take several minutes)
-4. The final answer contains the reference image and an HTML video preview
-
-## AgentKit Deployment
-
-### Deploy to BytePlus AgentKit Runtime
-
-**Step 0:** If you haven't installed agentkit yet, you can do it locally (inside the Python virtual environment) with:
+**第 0 步**：如尚未安装 agentkit CLI，可在 Python 虚拟环境中安装：
 
 ```bash
 uv pip install agentkit-sdk-python
 ```
 
-**Step 1:** Make sure you are in the current directory (`ad_video_gen`), then configure AgentKit:
+**第 1 步**：确认当前处于 `ad_video_gen` 目录，然后配置 AgentKit。
 
-**Note**: We assume here that `MODEL_AGENT_API_KEY` is defined in your shell environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first:
+**注意**：`agentkit` CLI 自身不读取 `.env`（只有 Agent 进程会在启动时加载），如果变量保存在 `.env` 中，请先导出到当前 shell：
 
 ```bash
 set -a && source ./.env && set +a
 ```
 
-This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
+这同时会导出 CLI 认证所需的 `BYTEPLUS_ACCESS_KEY` 与 `BYTEPLUS_SECRET_KEY`。
 
 ```bash
 uv run agentkit config \
@@ -210,46 +158,63 @@ uv run agentkit config \
 --launch_type cloud
 ```
 
-**Note**: The `--cloud_provider byteplus` flag is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
+**注意**：`--cloud_provider byteplus` 参数是必需的。缺少它时 CLI 默认使用火山引擎，`agentkit launch` 会在解析账号 ID 时报错 `Volcengine credentials not found (Service: sts)`。
 
-**Step 2:** Deploy the runtime:
+**第 2 步**：部署 Runtime：
 
 ```bash
 uv run agentkit launch
 ```
 
-### Test the Deployed Agent
+部署成功后：
 
-After successful deployment:
+1. 访问 [BytePlus AgentKit 控制台](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
+2. 点击 **Runtime** 查看已部署的 `ad_video_gen`
+3. 获取公网访问域名（形如 `https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com`）与 API Key
 
-1. Visit the [BytePlus AgentKit Console](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
-2. Click **Runtime** to view the deployed agent `ad_video_gen`
-3. Get the public access domain name (e.g., `https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com`) and API Key
-
-You can directly use `agentkit invoke` to trigger / debug the agent. The command is:
+也可以直接使用 `agentkit invoke` 触发 / 调试：
 
 ```bash
 uv run agentkit invoke '{"prompt": "Generate a marketing video for a sparkling yuzu drink, fresh and summery, vertical 9:16"}'
 ```
 
-## Cleanup / Teardown
-
-You can remove your deployed AgentKit runtime with:
+不再需要时，可以清理已部署的 Runtime：
 
 ```bash
 uv run agentkit destroy
 ```
 
-## FAQ
+## 示例提示词
 
-### Does it support direct image upload or base64 images?
+- "请为一款杨梅饮品生成商品展示视频，竖屏 9:16，清新夏日风格。卖点：天然杨梅、酸甜可口、冰镇更爽，适合火锅、烧烤、聚会场景。"
+- "请为奶香手撕吐司生成一条电商营销视频。使用场景：早餐、下午茶、露营野餐。核心卖点：奶香浓郁、口感松软、烤后外脆内软、适合全家分享。风格：温暖、明亮、有食欲。"
+- "为一款侘寂风香薰蜡烛生成 30 秒种草视频。目标人群：喜欢极简家居和睡前放松的都市上班族。卖点：天然大豆蜡、木质香调、水泥罐可复用。视觉风格：克制、安静、高级。"
 
-The current sample only supports publicly accessible image URLs as product references. Direct image upload and base64 images are not supported.
+## 效果展示
 
-### Does it generate multiple candidate videos and evaluate them automatically?
+Agent 的一次完整运行过程如下：
 
-The current single-agent version generates one reference image and one video by default. It does not include candidate generation, quality evaluation, stitching, or upload workflows — see `ad_video_gen_seq` for those.
+1. 根据商品描述规划四段式营销故事
+2. 生成一张 2x2 分镜参考图并立即展示
+3. 基于参考图生成一条连续的营销视频（可能需要数分钟）
+4. 最终回复中包含参考图与可直接播放的 HTML 视频预览
 
-### Can the video aspect ratio and duration be adjusted?
+整体架构与数据流见上方架构图（`assets/images/architecture.png`）。
 
-Yes. By default, the agent generates a 9:16, 1080P, 15-second video. If you explicitly ask for a landscape or square ratio, or a custom duration, the agent uses your requested format. Dreamina Seedance 2.5 supports durations from 4 up to 30 seconds.
+## 常见问题
+
+**是否支持直接上传图片或 base64 图片？**
+
+当前样例仅支持公网可访问的图片 URL 作为商品参考图，不支持直接上传或 base64 图片。
+
+**是否会生成多个候选视频并自动评估？**
+
+单智能体版本默认只生成一张参考图和一条视频，不包含候选生成、质量评估、拼接与上传流程——这些能力见 `ad_video_gen_seq` 样例。
+
+**视频比例和时长可以调整吗？**
+
+可以。默认生成 9:16、1080P、15 秒的视频；如明确要求横屏、方形或自定义时长，Agent 会按要求生成。Dreamina Seedance 2.5 支持 4 到 30 秒的时长。
+
+## 代码许可
+
+本工程遵循 Apache 2.0 License
