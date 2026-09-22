@@ -1,6 +1,6 @@
 # AgentKit Examples
 
-**Latest Update: 2026-08-28**
+**Latest Update: 2026-09-22**
 
 Welcome! This repository contains example AI agents written in Python and designed to run on AgentKit. Most of the examples here are stolen shamelessly from [agentkit-samples](https://github.com/bytedance/agentkit-samples), an official set of examples put together by developers at ByteDance.
 
@@ -24,6 +24,17 @@ We need to do this because of differences in:
 - Supported regions
 
 This requires us to carefully test that a given example actually works on the target platform (Volcano Engine or BytePlus) and adjust accordingly.
+
+### Template conformance
+
+All examples (on both platforms) follow the [`template/` conventions](https://github.com/bytedance/agentkit-samples/tree/main/template) of the upstream agentkit-samples repository:
+
+- A Chinese `README.md` on the required section skeleton (概述 → 代码许可), with the full English documentation kept as `README_en.md`
+- A `project.yaml` that passes the upstream `workflow_utils/check_project_yaml.py` validator
+- A per-example Apache 2.0 `LICENSE` and static assets under `assets/images/`
+- Python formatted and linted with ruff v0.11.12 (the version pinned by upstream's pre-commit config)
+
+This keeps the examples here byte-identical to their contributed counterparts in agentkit-samples: the `byteplus/` examples are submitted upstream as `*_bp` twins ([PR #271](https://github.com/bytedance/agentkit-samples/pull/271) into `python/02-use-cases/`, [PR #272](https://github.com/bytedance/agentkit-samples/pull/272) into `python/advanced/`), so future updates sync by re-copying the example directory.
 
 ## Included Demos
 
