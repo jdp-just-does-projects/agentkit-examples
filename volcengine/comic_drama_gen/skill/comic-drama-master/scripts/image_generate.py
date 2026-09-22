@@ -68,7 +68,9 @@ def image_generate(prompt: str, output_dir: str = None) -> list[str]:
     # MODEL_IMAGE_API_BASE overrides the Ark SDK's default endpoint
     # (https://ark.cn-beijing.volces.com/api/v3).
     base_url = os.getenv("MODEL_IMAGE_API_BASE")
-    client = Ark(api_key=api_key, base_url=base_url) if base_url else Ark(api_key=api_key)
+    client = (
+        Ark(api_key=api_key, base_url=base_url) if base_url else Ark(api_key=api_key)
+    )
 
     model = os.getenv("MODEL_IMAGE_NAME", DEFAULT_MODEL)
 

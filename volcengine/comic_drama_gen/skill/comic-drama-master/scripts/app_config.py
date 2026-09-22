@@ -32,7 +32,9 @@ def get_app_config() -> dict:
     # Each storyboard scene can be dynamically allocated 4s ~ 30s for a richer, more varied pacing
     total_seconds = int(minutes * 60)
     # Scene count reference range: all-longest duration gives the lower bound, all-shortest gives the upper bound
-    min_scenes = total_seconds // MAX_SCENE_DURATION  # Scene count if all scenes are 30s
+    min_scenes = (
+        total_seconds // MAX_SCENE_DURATION
+    )  # Scene count if all scenes are 30s
     max_scenes = total_seconds // MIN_SCENE_DURATION  # Scene count if all scenes are 4s
     # Recommended scene count: estimated with the midpoint average duration, balancing pacing variety
     avg_duration = (MIN_SCENE_DURATION + MAX_SCENE_DURATION) / 2

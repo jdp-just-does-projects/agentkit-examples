@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 _VALID_DURATIONS = set(range(4, 31))
 _API_URL = (
-    os.environ.get("MODEL_VIDEO_API_BASE", "https://ark.cn-beijing.volces.com/api/v3")
-    .rstrip("/")
+    os.environ.get(
+        "MODEL_VIDEO_API_BASE", "https://ark.cn-beijing.volces.com/api/v3"
+    ).rstrip("/")
     + "/contents/generations/tasks"
 )
 _MODEL = os.environ.get("DEFAULT_VIDEO_MODEL_NAME") or os.environ.get(

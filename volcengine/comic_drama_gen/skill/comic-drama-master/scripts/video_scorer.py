@@ -12,8 +12,9 @@ import sys
 import requests
 
 _CHAT_URL = (
-    os.environ.get("MODEL_AGENT_API_BASE", "https://ark.cn-beijing.volces.com/api/v3")
-    .rstrip("/")
+    os.environ.get(
+        "MODEL_AGENT_API_BASE", "https://ark.cn-beijing.volces.com/api/v3"
+    ).rstrip("/")
     + "/chat/completions"
 )
 _EVAL_MODEL = os.environ.get("EVAL_MODEL_NAME", "deepseek-v4-pro-260425")
@@ -90,7 +91,8 @@ def score_video(task_folder: str) -> dict:
 """
 
     prompt = _RUBRIC.format(
-        task_structure=task_structure, script_preview=script_preview or "(script not found)"
+        task_structure=task_structure,
+        script_preview=script_preview or "(script not found)",
     )
 
     try:
@@ -116,7 +118,11 @@ def score_video(task_folder: str) -> dict:
             },
         }
     except Exception as e:
-        return {"task_folder": task_folder, "evaluation": f"Scoring failed: {e}", "stats": {}}
+        return {
+            "task_folder": task_folder,
+            "evaluation": f"Scoring failed: {e}",
+            "stats": {},
+        }
 
 
 if __name__ == "__main__":

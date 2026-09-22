@@ -99,9 +99,7 @@ def resolve(url: str) -> str:
     # Accept: query stripped entirely, query truncated (prefix of the full
     # URL), or a differently-mangled query. In every case the exact
     # scheme+host+path match with a recorded signed URL is the strong signal.
-    logger.warning(
-        "Restoring signed URL that the model altered: %r -> %r", url, full
-    )
+    logger.warning("Restoring signed URL that the model altered: %r -> %r", url, full)
     return full
 
 
@@ -140,10 +138,10 @@ def _restore_in_text(text: str, shell: bool = False) -> str:
             return raw
         if shell:
             start = match.start()
-            quoted = start > 0 and text[start - 1] in "\'\""
+            quoted = start > 0 and text[start - 1] in "'\""
             if not quoted:
                 fixed = "'" + fixed + "'"
-        return fixed + raw[len(core):]
+        return fixed + raw[len(core) :]
 
     return _URL_RE.sub(_sub, text)
 

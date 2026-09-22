@@ -177,9 +177,13 @@ def merge_videos(input_dir: str, output: str, scene_count: int) -> dict:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Merge scene videos")
-    parser.add_argument("--input-dir", required=True, help="Directory containing the video files")
+    parser.add_argument(
+        "--input-dir", required=True, help="Directory containing the video files"
+    )
     parser.add_argument("--output", required=True, help="Output file path")
-    parser.add_argument("--scene-count", type=int, required=True, help="Number of scenes")
+    parser.add_argument(
+        "--scene-count", type=int, required=True, help="Number of scenes"
+    )
     args = parser.parse_args()
 
     result = merge_videos(args.input_dir, args.output, args.scene_count)

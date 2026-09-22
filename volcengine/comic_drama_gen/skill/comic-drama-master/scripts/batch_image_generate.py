@@ -119,7 +119,9 @@ def _generate_single(
                 import urllib.request
 
                 urllib.request.urlretrieve(response.data[0].url, filepath)
-                print(f"[{index + 1}] ✅ Generated successfully (URL download): {filename}")
+                print(
+                    f"[{index + 1}] ✅ Generated successfully (URL download): {filename}"
+                )
                 return {
                     "index": index,
                     "status": "success",
@@ -210,7 +212,9 @@ def batch_image_generate(
     client = _get_client()
     model = os.getenv("MODEL_IMAGE_NAME", DEFAULT_MODEL)
 
-    print(f"🎨 Starting batch generation of {len(prompts)} images (parallelism: {max_workers})...")
+    print(
+        f"🎨 Starting batch generation of {len(prompts)} images (parallelism: {max_workers})..."
+    )
     start_time = time.time()
 
     results = []
@@ -299,12 +303,19 @@ def batch_image_generate(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Batch parallel image generation")
-    parser.add_argument("--prompts-file", help="Path to a JSON file containing an array of prompt strings")
     parser.add_argument(
-        "--prompts", nargs="+", help="Pass the prompt list directly (mutually exclusive with --prompts-file)"
+        "--prompts-file",
+        help="Path to a JSON file containing an array of prompt strings",
+    )
+    parser.add_argument(
+        "--prompts",
+        nargs="+",
+        help="Pass the prompt list directly (mutually exclusive with --prompts-file)",
     )
     parser.add_argument("--output-dir", required=True, help="Directory to save images")
-    parser.add_argument("--prefix", default="scene_", help="Filename prefix (default: scene_)")
+    parser.add_argument(
+        "--prefix", default="scene_", help="Filename prefix (default: scene_)"
+    )
     parser.add_argument("--ext", default=".jpg", help="File extension (default: .jpg)")
     parser.add_argument(
         "--max-workers",
@@ -313,7 +324,10 @@ if __name__ == "__main__":
         help=f"Maximum parallelism (default: {DEFAULT_MAX_WORKERS})",
     )
     parser.add_argument(
-        "--max-retries", type=int, default=3, help="Maximum retries per image (default: 3)"
+        "--max-retries",
+        type=int,
+        default=3,
+        help="Maximum retries per image (default: 3)",
     )
     parser.add_argument(
         "--filenames-file",

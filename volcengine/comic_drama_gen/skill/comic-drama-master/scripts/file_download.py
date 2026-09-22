@@ -103,7 +103,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Download files in batch")
     parser.add_argument("--urls", nargs="+", required=True, help="List of URLs")
     parser.add_argument("--save-dir", default=None, help="Save directory")
-    parser.add_argument("--filenames", nargs="+", default=None, help="List of filenames")
+    parser.add_argument(
+        "--filenames", nargs="+", default=None, help="List of filenames"
+    )
     args = parser.parse_args()
 
     paths = file_download(args.urls, args.save_dir, args.filenames)
