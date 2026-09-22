@@ -32,12 +32,12 @@ if _AGENT_DIR not in sys.path:
 # veadk resolves CLOUD_PROVIDER, endpoints, and credentials once at import
 # time, so the environment must be fully populated before any veadk import
 # below.
-from consts import set_veadk_environment_variables
+from consts import set_veadk_environment_variables  # noqa: E402
 
 set_veadk_environment_variables()
 
-from google.adk.models.lite_llm import LiteLlm
-from veadk.models.ark_llm import ArkLlm
+from google.adk.models.lite_llm import LiteLlm  # noqa: E402
+from veadk.models.ark_llm import ArkLlm  # noqa: E402
 
 # It is recommended to set the global logger via logging.basicConfig; default log level is INFO
 logging.basicConfig(level=logging.INFO)
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # the documented precedence: environment > config.yaml > these defaults.
 # `settings.model` snapshotted its values before these defaults existed, so
 # rebuild it afterwards; the sub-agents read it when `app` is imported below.
-import veadk.config as _veadk_config
+import veadk.config as _veadk_config  # noqa: E402
 
 for _key, _value in {
     "MODEL_AGENT_NAME": "dola-seed-2-1-turbo-260628",
@@ -100,8 +100,8 @@ for _model_cls in (LiteLlm, ArkLlm):
 # JSONDecodeError. Still the case as of google-adk 2.6.2; recheck on upgrades.
 # Fall back to json-repair, and log the raw payload so genuinely unrecoverable
 # calls can be diagnosed instead of guessing at the model output.
-import google.adk.models.lite_llm as _lite_llm
-from json_repair import repair_json
+import google.adk.models.lite_llm as _lite_llm  # noqa: E402
+from json_repair import repair_json  # noqa: E402
 
 _original_parse_tool_call_arguments = _lite_llm._parse_tool_call_arguments
 
@@ -135,9 +135,11 @@ _lite_llm._parse_tool_call_arguments = _parse_tool_call_arguments_with_repair
 # arguments in place before veadk parses them; leave them untouched when repair
 # fails so the original error still surfaces. Still required as of
 # veadk-python 1.0.9; recheck on upgrades.
-import veadk.models.ark_llm as _ark_llm
+import veadk.models.ark_llm as _ark_llm  # noqa: E402
 
-_original_event_to_generate_content_response = _ark_llm.event_to_generate_content_response
+_original_event_to_generate_content_response = (
+    _ark_llm.event_to_generate_content_response
+)
 
 
 def _repair_ark_function_call_arguments(event):
@@ -186,8 +188,8 @@ _ark_llm.event_to_generate_content_response = (
 # earlier (expensive) stages already completed. Return the error to the model
 # as a normal tool response instead, so it can correct itself and continue.
 # Still required as of google-adk 2.6.2; recheck on upgrades.
-import google.adk.flows.llm_flows.functions as _adk_functions
-from google.adk.tools.function_tool import FunctionTool
+import google.adk.flows.llm_flows.functions as _adk_functions  # noqa: E402
+from google.adk.tools.function_tool import FunctionTool  # noqa: E402
 
 _original_get_tool = _adk_functions._get_tool
 

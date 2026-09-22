@@ -27,7 +27,9 @@ max_output_tokens_config = types.GenerateContentConfig(max_output_tokens=18000)
 class Status(BaseModel):
     """A status."""
 
-    success: bool = Field(description="True if the result is successful, otherwise False")
+    success: bool = Field(
+        description="True if the result is successful, otherwise False"
+    )
     message: str = Field(description="Empty on success, otherwise the error message")
 
 

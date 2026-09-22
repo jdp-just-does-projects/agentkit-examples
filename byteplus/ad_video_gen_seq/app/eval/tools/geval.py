@@ -91,7 +91,8 @@ async def repair_evaluate_input(
                     f"This {MEDIA} has shot_id={shot_id}, media_id={i}. You received {len(reference_part_list) + 1} media items in total; the first {MEDIA} is the {MEDIA} you need to evaluate"
                     + f", and the remaining {len(reference_part_list)} images are all reference images."
                     if len(reference_part_list) > 0
-                    else "" + "Please evaluate the media item as required and output a result in the required format."
+                    else ""
+                    + "Please evaluate the media item as required and output a result in the required format."
                 ),
             }
 
