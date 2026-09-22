@@ -1,243 +1,169 @@
-# Video Generation Agent - Video Story Generator
+# 绘本故事视频生成 Agent（BytePlus 版）
 
-**IMPORTANT**: This demo was tested with Python 3.12, but other demos here require other versions of Python. We recommend installing and managing multiple versions of Python with [mise](https://mise.jdx.dev/getting-started.html). 
+> English documentation: [README_en.md](README_en.md)
 
-This is a "Fable Storybook Video Generation" Agent based on Volcano Engine / BytePlus AgentKit.
+## 概述
 
-When given a user-input fable storyline, it will: 
+本样例是一个基于 BytePlus AgentKit 与 VeADK 的"绘本故事视频生成"（Fable Storybook）Agent。
 
-- Generate four cartoon-style storyboard illustrations
-- Generate three transitional video segments with adjacent storyboards as the start and end frames
-- Stitch the three video segments sequentially into a complete film using a local MCP tool
-- Upload the finished film to Volcano Engine TOS and return an accessible signed URL
+输入一个童话故事或故事情节后，Agent 会：
 
-## Overview
+- 将故事拆分为三个场景，并生成四张 3D 卡通风格的分镜插画
+- 以相邻分镜作为首尾帧，生成三段过渡视频
+- 调用本地 MCP 工具将三段视频按顺序拼接为一部完整成片
+- 将成片上传到 BytePlus TOS 对象存储，并返回可访问的签名 URL
 
-## Core Features
+![架构图](assets/images/architecture.png)
 
-This use case demonstrates how to build a production-level video generation system with the following capabilities:
+（架构图的 Mermaid 源码见 [README_en.md](README_en.md)）
 
-- **Intelligent Story Assistant**: Based on the story or plot provided by the user, it understands and refines the storyline, combines it with background information retrieval, splits the story into three scenes, and rewrites the story description.
-- **Storyboard Generation**: Based on the story description, it uses the large model's text-to-image capability to generate storyboard images.
-- **Video Generation**: Based on the storyboard images, it pairs them sequentially according to the three scenes and uses the large model to generate three storyboard videos.
-- **Product Hosting**: Downloads the storyboard videos locally, uses a local MCP tool to stitch them into a complete story video, and uploads the merged video to TOS object storage, generating an accessible preview link.
-- **Observability**: Integrates OpenTelemetry tracing and APMPlus monitoring.
+## 核心功能
 
-The system architecture is as follows:
+- **智能故事助手**：理解并提炼用户提供的故事或情节，结合背景信息检索（`web_search`），将故事拆分为三个场景并改写为适合 5-15 岁儿童的内容
+- **分镜插画生成**：基于故事描述，使用大模型文生图能力生成四张分镜插画；先单独生成第一张，再将其作为风格参考图生成其余三张，保证风格与角色形象一致
+- **视频生成**：将四张分镜图按顺序两两配对作为首尾帧，一次性提交三个任务，生成三段 720P 分镜视频
+- **成片托管**：将分镜视频下载到本地，通过本地 MCP 工具（`@pickstar-2002/video-clip-mcp`）拼接为完整故事视频，再上传到 TOS 对象存储并生成限时签名预览链接
+- **可观测性**：集成 OpenTelemetry 链路追踪与 APMPlus 监控
+- **迭代优化**：维护会话上下文，用户可以继续要求调整风格、节奏或内容
+- **默认英文、跟随用户语言**：Agent 默认以英文思考、规划与回复（见 [`agent.yaml`](agent.yaml)）；用户使用其他语言时会自动切换为该语言输出
+- **视频无口播**：Seedance 2.5 原生生成音频，视频提示词只要求纯音乐与环境音效，明确排除对白、旁白、歌词、字幕与画面文字，故事完全通过画面、运镜、音乐与环境音传达
 
-![Architecture](img/architecture.png)
+## Agent 能力
 
-<details>
-<summary>Mermaid source</summary>
+| 组件 | 说明 |
+| --- | --- |
+| **Agent 服务** | [`agent.py`](agent.py) - 主程序入口，包含 MCP 工具注册 |
+| **Agent 配置** | [`agent.yaml`](agent.yaml) - 模型设置、系统提示词与工具列表 |
+| **自动续跑守卫** | [`pipeline_guard.py`](pipeline_guard.py) - 若模型在成片上传 TOS 之前就以纯文本结束回合，会注入 `continue_pipeline` 工具调用让流程继续，用户无需手动输入"继续" |
+| **签名 URL 注册表** | [`url_registry.py`](url_registry.py) - 图像/视频工具返回的 TOS 预签名 URL 常被模型截断查询串导致 `403 Forbidden`；注册表记录每个工具返回的 URL，并在下一次工具调用前还原完整签名 URL |
+| **自定义工具** | [`tool/`](tool/) - 文件下载与 TOS 上传工具 |
+| **MCP 集成** | `@pickstar-2002/video-clip-mcp` - 本地视频拼接服务 |
+| **短期记忆** | 维护会话上下文，保证多轮对话连续性 |
 
-```mermaid
-flowchart TB
-    user(["User<br/>a children's story or plot"])
+## 目录结构说明
 
-    subgraph runtime["AgentKit Runtime — agent.py"]
-        direction TB
-        app["AgentkitAgentServerApp<br/>HTTP :8000"]
-        mem[("ShortTermMemory<br/>backend = local")]
-
-        subgraph agent["storybook_illustrator — built by AgentBuilder from agent.yaml"]
-            direction TB
-            llm["deepseek-v4-pro-260425<br/>3-scene rewrite → 4 frames → 3 clips → merge → upload"]
-            guard["pipeline_guard.py<br/>required tool: upload_file_to_tos"]
-            registry["url_registry.py<br/>restores pre-signed URLs in tool arguments"]
-        end
-
-        t_search["web_search<br/>veadk builtin tool"]
-        t_img["image_generate<br/>veadk builtin tool"]
-        t_vid["video_generate<br/>veadk builtin tool"]
-        t_dl["file_download<br/>tool/file_download.py"]
-        t_up["upload_file_to_tos<br/>tool/tos_upload.py"]
-        mcp["McpToolset — stdio<br/>@pickstar-2002/video-clip-mcp"]
-    end
-
-    subgraph ark["BytePlus ModelArk"]
-        direction TB
-        seedream["Seedream 5.0 Pro<br/>dola-seedream-5-0-pro-260628"]
-        seedance["Seedance 2.5<br/>dreamina-seedance-2-5-260628"]
-    end
-
-    search["BytePlus web search API"]
-    localfs[("Local download dir<br/>the 3 storyboard clips")]
-    tos[("TOS<br/>merged story video · signed URL")]
-
-    user -- "story" --> app --> llm
-    app <--> mem
-
-    llm -- "1 · research the story background" --> t_search --> search
-    llm -- "2a · text_to_single → frame 1<br/>2b · 3 × single_image_to_single, frame 1 as style reference<br/>size 1024x1024" --> t_img --> seedream
-    llm -- "3 · 3 tasks: frame pairs as first/last frame<br/>720p · 10 s each · no speech" --> t_vid --> seedance
-    llm -- "5a · download the 3 clips" --> t_dl --> localfs
-    llm -- "5b · stitch the clips" --> mcp --> localfs
-    llm -- "6 · upload the merged video" --> t_up --> tos
-    tos -- "7 · signed video URL" --> user
-
-    guard -. "injects continue_pipeline when a turn ends<br/>before upload_file_to_tos has run" .-> llm
-    registry -. "keeps the signed image / video URLs whole<br/>across download, merge and upload" .-> t_dl
-
-    classDef agent fill:#e7f0ff,stroke:#3b6fd4,color:#0d1b33
-    classDef tool fill:#eafaf1,stroke:#2e9e6b,color:#08281a
-    classDef ext fill:#fff4e5,stroke:#d98724,color:#3a2405
-    classDef store fill:#f3ecfb,stroke:#8253c6,color:#22103a
-    classDef actor fill:#eceef1,stroke:#7a828c,color:#1b1f24
-    class llm,guard,registry agent
-    class app,t_search,t_img,t_vid,t_dl,t_up,mcp tool
-    class seedream,seedance,search ext
-    class tos,mem,localfs store
-    class user actor
-    style runtime fill:#fbfcfe,stroke:#9aa4b2,color:#1b1f24
-    style agent fill:#f4f8ff,stroke:#3b6fd4,color:#0d1b33
-    style ark fill:#fffaf3,stroke:#d98724,color:#3a2405
+```bash
+video_gen
+├── LICENSE               # 代码许可（Apache 2.0）
+├── README.md             # 中文说明文档（本文件）
+├── README_en.md          # 英文说明文档
+├── project.yaml          # 项目信息元数据
+├── agent.py              # 主程序入口，注册 MCP 工具并定义 AgentKit 服务
+├── agent.yaml            # Agent 配置（模型、系统提示词与工具列表）
+├── consts.py             # 默认模型名、API 地址与 .env 加载逻辑
+├── pipeline_guard.py     # 自动续跑守卫回调
+├── url_registry.py       # 签名 URL 注册表回调
+├── tool
+│   ├── file_download.py  # 文件下载工具
+│   └── tos_upload.py     # TOS 上传工具
+├── scripts
+│   └── setup.sh          # 镜像构建阶段预装 video-clip-mcp 的脚本
+├── assets
+│   └── images            # 架构图与运行效果截图
+├── .env.example          # 环境变量示例文件
+├── pyproject.toml        # 项目依赖管理文件（uv）
+└── requirements.txt      # 项目依赖管理文件（pip）
 ```
 
-</details>
+## 本地运行
 
-Key features include:
+**注意**：本样例在 Python 3.12 下测试通过，仓库中其他样例可能需要不同的 Python 版本，推荐使用 [mise](https://mise.jdx.dev/getting-started.html) 管理多版本 Python。
 
-- **Intelligent Storyboard Generation**: Automatically decomposes the narrative into 4 visual keyframes, maintaining style consistency and character continuity.
-- **Seamless Video Transitions**: Uses advanced visual AI models to generate smooth transitional videos between frames.
-- **Local MCP Tool Integration**: Utilizes the Model Context Protocol for efficient local video processing without cloud dependencies.
-- **Automatic Upload & Sharing**: Uploads the completed video to TOS and generates a time-limited signed URL for secure sharing.
-- **Iterative Optimization**: Maintains conversation context, allowing users to request adjustments to style, pacing, or content.
-- **English-First Output**: The agent is instructed (in [`agent.yaml`](agent.yaml)) to think, plan, and write everything in English by default — its scene breakdown, status messages, image/video prompts, and final answer — so outputs are easy to review. If the user writes in another language, the agent switches to that language for all of its output instead.
-- **No Speech in Videos**: Seedance 2.5 generates audio natively, so the agent asks for instrumental background music and ambient sound effects only. Every video prompt explicitly rules out dialogue, voiceover, narration, singing, lyrics, subtitles, and on-screen text; the story is told through visuals, motion, music, and ambient sound.
+### 前置准备
 
-## Agent Capabilities
+**Node.js 环境**
 
-| Component | Description |
-| --- | --- |
-| **Agent Service** | [`agent.py`](agent.py) - Main application, includes MCP tool registration |
-| **Auto-continue Guard** | [`pipeline_guard.py`](pipeline_guard.py) - keeps the multi-step run going in one turn: if the model ends a turn with a text-only progress note before the merged video has been uploaded to TOS, the guard injects a `continue_pipeline` tool call so the user never has to type "continue" |
-| **Signed-URL Registry** | [`url_registry.py`](url_registry.py) - the image/video tools return pre-signed TOS URLs whose signature is in the query string; models often drop or truncate that query string when copying a URL into `file_download` or the `image` / `first_frame` / `last_frame` fields, which TOS rejects with `403 Forbidden`. The registry records every URL a tool returns and restores the full signed URL before the next tool runs |
-| **Agent Configuration** | [`agent.yaml`](agent.yaml) - Model settings, system instructions, and tool list |
-| **Custom Tools** | [`tool/`](tool/) - File download and TOS upload utility tools |
-| **MCP Integration** | `@pickstar-2002/video-clip-mcp` - Local video stitching service |
-| **Short-term Memory** | Session context maintenance to preserve conversational continuity |
+- 安装 Node.js 18+ 与 npm（[Node.js 安装](https://nodejs.org/en)）
+- 确保终端中 `npx` 命令可用
 
-## Quick Start
+**BytePlus 访问凭证**
 
-### Prerequisites
+请先配置 IAM 用户并创建 Access Key / Secret Key，同时为该用户授予以下权限：
 
-#### Node.js Environment
+- `AgentKitFullAccess`（AgentKit 完全访问）
+- `APMPlusServerFullAccess`（APMPlus 完全访问）
 
-- Install Node.js 18+ and npm ([Node.js Installation](https://nodejs.org/en))
-- Ensure the `npx` command is available in the terminal
+在 BytePlus 控制台搜索 "ModelArk"，在 "Model activation" 页面确认以下模型已开通：
 
-#### BytePlus Access Credentials
+- **文本模型**：DeepSeek V4 Pro（模型 ID：`deepseek-v4-pro-260425`）
+- **图像模型**：Seedream 5.0 Pro（模型 ID：`dola-seedream-5-0-pro-260628`）
+- **视频模型**：Seedance 2.5（模型 ID：`dreamina-seedance-2-5-260628`，支持最长 30 秒的视频片段）
 
-Make sure you have configured an IAM user, created a new Access Key / Secret Key pair, and that you have assigned the following permissions to the user: 
+最后在 "API Keys" 页面创建并保存一个 API Key，后续配置环境变量时会用到。
 
-- `AgentKitFullAccess` (AgentKit full access)
-- `APMPlusServerFullAccess` (APMPlus full access)
+### 依赖安装
 
-In the web console, open the product search dropdown and search for "Ark" (on VolcanoEngine) or "ModelArk" (on BytePlus). Under "Model activation" make sure the following models are enabled: 
-
-- DeepSeek V4 Pro (model ID: `deepseek-v4-pro-260425`)
-- Seedream 5.0 Pro (model ID: `dola-seedream-5-0-pro-260628`)
-- Seedance 2.5 (model ID: `dreamina-seedance-2-5-260628`) — supports video clips up to 30 seconds long
-
-**Finally, from the "API Keys" page, create a new key and save it, we'll need it later on (see *Configure Environment Variables* below).**
-
-### Install Dependencies
-
-*We recommend using uv to manage Python dependencies*
-
-Once UV is installed, set up with: 
+推荐使用 `uv` 管理 Python 依赖：
 
 ```bash
 uv sync
 ```
 
-If you are in China and have connectivity issues, you can use this command instead: 
+如果在中国大陆访问 PyPI 有网络问题，可以改用清华镜像：
 
 ```bash
 uv sync --index-url https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-**Note:** The MCP video tool (`@pickstar-2002/video-clip-mcp`) will be automatically started via `npx` when the agent is running. No manual installation is required.
+**注意**：MCP 视频工具（`@pickstar-2002/video-clip-mcp`）会在 Agent 运行时通过 `npx` 自动启动，无需手动安装。
 
-### Configure Environment Variables
+### 环境准备
 
-Set the following environment variables — either export them in your shell, or copy [`.env.example`](.env.example) to `.env` (in the project directory or in the directory you launch from) and fill it in. `.env` is loaded automatically at startup (see [`consts.py`](consts.py)) and is optional; values in `.env` take precedence over variables exported in the shell, and anything missing from `.env` falls back to the shell environment. `.env` only applies to local runs — for cloud deploys pass values through `agentkit config --runtime_envs ...` (see below):
+设置以下环境变量：可以直接在 shell 中 export，也可以将 [`.env.example`](.env.example) 复制为 `.env` 并填写。`.env` 会在启动时自动加载（见 [`consts.py`](consts.py)），其中的值优先于 shell 环境变量；`.env` 只对本地运行生效，云端部署需通过 `agentkit config --runtime_envs ...` 传入（见下文）：
 
 ```bash
 export BYTEPLUS_ACCESS_KEY={your_ak}
 export BYTEPLUS_SECRET_KEY={your_sk}
 export DATABASE_TOS_BUCKET=agentkit-platform-{{your_account_id}}
-export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # Get from BytePlus ModelArk, required for local debugging
+export MODEL_AGENT_API_KEY={{your_model_agent_api_key}} # 从 BytePlus ModelArk 获取，本地调试必需
 export DOWNLOAD_DIR=/tmp
 export AGENTKIT_CLOUD_PROVIDER=byteplus
 export CLOUD_PROVIDER=byteplus
-export BYTEPLUS_WEB_SEARCH_API_KEY={{your_web_search_api_key}} # Get from BytePlus Searchinfinity, required by the web_search tool
+export BYTEPLUS_WEB_SEARCH_API_KEY={{your_web_search_api_key}} # 从 BytePlus Searchinfinity 获取，web_search 工具必需
 ```
 
-**Note:** `AGENTKIT_CLOUD_PROVIDER` and `CLOUD_PROVIDER` are both **mandatory** — export them in every shell you run this sample from, and pass both through to the deployed runtime. `AGENTKIT_CLOUD_PROVIDER` is read by the agentkit SDK, while veADK reads `CLOUD_PROVIDER` — it controls veADK's default endpoints, models, and the mapping of `BYTEPLUS_*` credentials onto the `VOLCENGINE_*` variables veADK uses internally. Without them the SDKs fall back to their Volcano Engine (mainland China) defaults and calls against your BytePlus account fail. `consts.py` sets `CLOUD_PROVIDER=byteplus` as a last-resort fallback inside the agent process, but that does not cover the agentkit SDK or the tools when run standalone, so do not rely on it.
+**注意**：`AGENTKIT_CLOUD_PROVIDER` 与 `CLOUD_PROVIDER` 均为**必填**。前者由 agentkit SDK 读取，后者由 veADK 读取，用于控制默认 Endpoint、默认模型以及 `BYTEPLUS_*` 凭证到 veADK 内部 `VOLCENGINE_*` 变量的映射。缺少它们时 SDK 会回退到火山引擎（中国大陆）默认值，导致对 BytePlus 账号的调用失败。`consts.py` 会在 Agent 进程内兜底设置 `CLOUD_PROVIDER=byteplus`，但覆盖不到 agentkit SDK 与独立运行的工具，请勿依赖。
 
-**Note:** `BYTEPLUS_WEB_SEARCH_API_KEY` is required by the agent's `web_search` tool when `CLOUD_PROVIDER=byteplus`. Without it, web searches fail (the agent keeps running, but every search returns an error). You can get an API key from the BytePlus **Searchinfinity** service — see the [Searchinfinity API Reference](https://docs.byteplus.com/en/docs/searchinfinity/Searchinfinity_API_Reference) for how to obtain and use the key.
+**注意**：`BYTEPLUS_WEB_SEARCH_API_KEY` 是 `web_search` 工具在 `CLOUD_PROVIDER=byteplus` 时的必需凭证。缺少它时联网搜索会失败（Agent 仍可继续运行，但每次搜索返回错误）。API Key 可从 BytePlus **Searchinfinity** 服务获取，参见 [Searchinfinity API Reference](https://docs.byteplus.com/en/docs/searchinfinity/Searchinfinity_API_Reference)。
 
-**TOS Bucket Configuration:**
+**TOS Bucket 配置**：
 
-- **Default bucket**: `agentkit-platform-{{your_account_id}}`
-  - Where `{{your_account_id}}` needs to be replaced with your BytePlus account ID
-  - Example: `DATABASE_TOS_BUCKET=agentkit-platform-12345678901234567890`
-- **If you need to customize, you can modify the `bucket_name` parameter in [`tool/tos_upload.py`](tool/tos_upload.py) or pass it in during the tool call.**
+- **默认 Bucket**：`agentkit-platform-{{your_account_id}}`
+  - 其中 `{{your_account_id}}` 需替换为你的 BytePlus 账号 ID
+  - 示例：`DATABASE_TOS_BUCKET=agentkit-platform-12345678901234567890`
+- 如需自定义，可修改 [`tool/tos_upload.py`](tool/tos_upload.py) 中的 `bucket_name` 参数，或在工具调用时传入。
 
-## Local Execution
+### 调试方法
 
-The simplest way to debug locally is with `veadk web`:
+本地调试最简单的方式是使用 `veadk web`：
 
-> `veadk web` is a web service based on FastAPI for debugging Agent applications. When you run this command, it starts a web server that loads and runs your agentkit agent code, while also providing a chat interface where you can interact with the agent. In the sidebar or a specific panel of the interface, you can view the details of the agent's execution, including the Thought Process, Tool calls, and model input/output.
+> `veadk web` 是一个基于 FastAPI 的 Web 调试服务。运行后会启动一个加载了本 Agent 代码的 Web 服务器，并提供聊天界面；在界面侧边栏中可以查看 Agent 的思考过程、工具调用以及模型输入输出。
 
-Running it from within the project directory is straightforward: 
+在项目目录内运行：
 
 ```bash
 uv run veadk web
 ```
 
-Visit `http://localhost:8000` in your browser, select the `video_gen` agent, enter a prompt, and click "Send". The interface looks and behaves exactly like the Google ADK test tool: 
+浏览器访问 `http://localhost:8000`，选择 `video_gen` Agent，输入提示词并发送即可。
 
-![ADK Interface](img/adk_interface.jpg)
+## AgentKit 部署
 
-### Example Prompts
-
-- **Chinese Idioms**: "A live-action version of Houyi shooting the suns, Chang'e flying to the moon, and Wu Gang chopping the tree (后羿射日,嫦娥奔月,吴刚伐木真人版)"
-- **Classic Stories**: "A storybook of The Foolish Old Man Who Removed the Mountains and Jingwei Filling the Sea (愚公移山与精卫填海绘本故事)"
-- **Wuxia Novels**: "A live-action video story of The Legend of the Condor Heroes (射雕英雄传的真人版视频故事)"
-- **Xuanhuan Novels**: "Han Li forming his Nascent Soul in A Record of a Mortal's Journey to Immortality (凡人修仙传韩立结婴)"
-- **3D Animation**: "The great battle in the Void Sky Palace from A Record of a Mortal's Journey to Immortality, in 3D animation style (凡人修仙传虚天殿大战,3D 动漫风格)"
-
-You can type prompts in any language (the examples above include the original Chinese titles). The agent replies, plans, and writes its image/video prompts in English by default, or in your language if you write in another one; the generated videos contain music and ambient sound but no speech.
-
-**Expected Behavior:**
-
-1. Generate 4 illustration storyboard frames
-2. Create 3 transitional video segments between consecutive frames
-3. Start the local MCP tool to stitch the videos
-4. Upload the final video to TOS
-5. Return a signed URL for viewing
-
-## AgentKit Deployment
-
-### Deploy to Volcano Engine AgentKit Runtime
-
-**Step 0:** If you haven't installed agentkit yet, you can do it locally (inside the Python virtual environment) with:
+**第 0 步**：如尚未安装 agentkit CLI，可在 Python 虚拟环境中安装：
 
 ```bash
 uv pip install agentkit-sdk-python
 ```
 
-**Step 1:** Make sure you are in the current directory (`video_gen`), then configure AgentKit:
+**第 1 步**：确认当前处于 `video_gen` 目录，然后配置 AgentKit。
 
-**Note**: We assume here that `DATABASE_TOS_BUCKET` and `MODEL_AGENT_API_KEY` are defined in your environment. The `agentkit` CLI does **not** read `.env` itself (only the agent process loads it at startup), so if you keep your values in `.env`, export them into your current shell first:
+**注意**：此处假设 `DATABASE_TOS_BUCKET` 与 `MODEL_AGENT_API_KEY` 已在环境中定义。`agentkit` CLI 自身不读取 `.env`（只有 Agent 进程会在启动时加载），如果变量保存在 `.env` 中，请先导出到当前 shell：
 
 ```bash
 set -a && source ./.env && set +a
 ```
 
-This also exports `BYTEPLUS_ACCESS_KEY` and `BYTEPLUS_SECRET_KEY`, which the CLI needs in order to authenticate with BytePlus during `agentkit config` and `agentkit launch`.
+这同时会导出 CLI 认证所需的 `BYTEPLUS_ACCESS_KEY` 与 `BYTEPLUS_SECRET_KEY`。
 
 ```bash
 uv run agentkit config \
@@ -251,11 +177,11 @@ uv run agentkit config \
 --launch_type cloud
 ```
 
-**Note**: The `--cloud_provider byteplus` flag is required. Without it the CLI defaults to Volcano Engine, and `agentkit launch` fails with `Volcengine credentials not found (Service: sts)` while trying to resolve your account ID.
+**注意**：`--cloud_provider byteplus` 参数是必需的。缺少它时 CLI 默认使用火山引擎，`agentkit launch` 会在解析账号 ID 时报错 `Volcengine credentials not found (Service: sts)`。
 
-**Step 2:** Modify the `agentkit.yaml` deployment configuration
+**第 2 步**：修改 `agentkit.yaml` 部署配置。
 
-> Purpose: After modification, it will pre-install video-clip-mcp during the image build phase to accelerate runtime startup.
+> 目的：修改后会在镜像构建阶段预装 video-clip-mcp，加速 Runtime 启动。
 
 ```bash
 # On Linux
@@ -266,53 +192,75 @@ sed -i '' 's/docker_build: {}/docker_build:/' agentkit.yaml && sed -i '' '/docke
   build_script: "scripts\/setup.sh"' agentkit.yaml
 ```
 
-**Step 3:** Deploy the runtime: 
+**第 3 步**：部署 Runtime：
 
 ```bash
 uv run agentkit launch
 ```
 
-### Test the Deployed Agent
+部署成功后：
 
-After successful deployment:
+1. 访问 [BytePlus AgentKit 控制台](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
+2. 点击 **Runtime** 查看已部署的 `storybook_illustrator`
+3. 获取公网访问域名（形如 `https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com`）与 API Key
 
-1. Visit the [BytePlus AgentKit Console](https://console.byteplus.com/agentkit/region:agentkit+ap-southeast-1/overview?projectName=default)
-2. Click **Runtime** to view the deployed agent `storybook_illustrator`
-3. Get the public access domain name (e.g., `https://xxxxx.apigateway-ap-southeast-1.apigw-byteplus.com`) and API Key
-
-#### Interact via the chat UI
-
-The agent runtime includes a simple web UI (chat window) where you can interact directly with the agent. Here are some examples:
-
-![AgentKit Web UI 1](img/webui_1.jpg)
-
-![AgentKit Web UI 2](img/webui_2.jpg)
-
-#### Interact via the command line (CLI)
-
-You can directly use `agentkit invoke` to trigger / debug the agent. The command is:
+Agent Runtime 自带一个简单的 Web UI（聊天窗口），可以直接与 Agent 交互；也可以使用 `agentkit invoke` 从命令行触发 / 调试：
 
 ```bash
-uv run agentkit invoke '{"prompt": "Story of a panda's adventure, in a Chinese animation style"}'
+uv run agentkit invoke '{"prompt": "The adventure of a panda, in a Chinese animation style"}'
 ```
 
-## Cleanup / Teardown
-
-You can remove your depoyed AgentKit runtime with:
+不再需要时，可以清理已部署的 Runtime：
 
 ```bash
 uv run agentkit destroy
 ```
 
-## Debugging tips
+## 示例提示词
 
-Having trouble understadning why AgentKit isn't doing what you expect? Try adding these environment variables to enable additional debug output:
+- **中国神话**："后羿射日,嫦娥奔月,吴刚伐木真人版"
+- **经典故事**："愚公移山与精卫填海绘本故事"
+- **武侠小说**："射雕英雄传的真人版视频故事"
+- **玄幻小说**："凡人修仙传韩立结婴"
+- **3D 动画**："凡人修仙传虚天殿大战,3D 动漫风格"
+
+可以使用任意语言输入提示词。Agent 默认以英文回复、规划并撰写图像/视频提示词；用户使用其他语言时会切换为该语言。生成的视频包含音乐与环境音，但没有口播。
+
+## 效果展示
+
+Agent 的一次完整运行过程如下：
+
+1. 生成 4 张分镜插画
+2. 以相邻分镜为首尾帧生成 3 段过渡视频
+3. 启动本地 MCP 工具拼接视频
+4. 将成片上传到 TOS
+5. 返回可观看的签名 URL
+
+本地 `veadk web` 调试界面（与 Google ADK 测试工具一致）：
+
+![ADK 调试界面](assets/images/adk_interface.jpg)
+
+部署后 AgentKit Runtime 自带 Web UI 的交互效果：
+
+![AgentKit Web UI 1](assets/images/webui_1.jpg)
+
+![AgentKit Web UI 2](assets/images/webui_2.jpg)
+
+## 常见问题
+
+**三段视频之间的画面风格为什么会有差异？**
+
+样例已经通过"先单独生成第一张分镜图，再将其作为风格参考（image_generate 工具的 `image` 字段）生成其余三张"来缓解风格漂移。由于三段视频是基于各自的首尾帧独立生成的，片段之间仍可能存在轻微的风格差异，属于预期现象。
+
+**AgentKit 行为不符合预期，如何排查？**
+
+可以设置以下环境变量开启更详细的调试输出：
 
 ```bash
 export AGENTKIT_LOG_CONSOLE=true
 export AGENTKIT_LOG_LEVEL=DEBUG
 ```
 
-## Known issues
+## 代码许可
 
-Stylistic differences between video clips have been mitigated by generating the first storyboard image alone and then passing it as a style reference (the `image` field of the image_generate tool) when generating the remaining three storyboard images. Some minor style variation between clips can still occur, since video clips are generated independently from each image pair.
+本工程遵循 Apache 2.0 License
